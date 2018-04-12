@@ -1,0 +1,6 @@
+[package]
+name = "boggle_server"
+version = "0.1.0"
+authors = ["Geoffrey Copin <copin.geoffrey@gmail.com>"]
+
+[dependencies]
