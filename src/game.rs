@@ -1,10 +1,11 @@
 use super:: {
     errors::{ServerError, ServerError::*},
+    log::LogCommands,
 };
 
 use std::{
     collections::HashMap,
-    sync::RwLock,
+    sync::{RwLock, mpsc::Sender},
 };
 
 use rand::{self, Rng};
@@ -32,13 +33,15 @@ const DICES: [[char; 6]; 16] = [
 pub struct Game {
     grid: [char; 16],
     played_words: HashMap<String, Vec<String>>,
+    log: Option<Sender<LogCommands>>,
 }
 
 impl Game {
-    fn new() -> Game {
+    pub fn new() -> Game {
         Game {
             grid: Game::generate_grid(),
             played_words: HashMap::new(),
+            log: None,
         }
     }
 
@@ -85,7 +88,7 @@ mod test {
 
     #[test]
     fn new() {
-        let game = Game::new();
+        let game = Game::new(None);
         game.grid.iter().enumerate()
             .for_each(|(idx, c)| assert!(DICES[idx].contains(c)));
     }

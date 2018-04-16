@@ -15,3 +15,13 @@ pub struct RequestHandler<T: Write> {
     players: Players<T>,
     log: Sender<LogCommands>,
 }
+
+impl<T: Write> RequestHandler<T> {
+    pub fn new(log: Sender<LogCommands>) -> Self {
+        RequestHandler {
+            game: Game::new(log.clone()),
+            players: Players::new(),
+            log,
+        }
+    }
+}
