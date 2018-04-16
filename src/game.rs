@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::RwLock,
+};
 
 const DICES: [[char; 6]; 16] = [
     ['E', 'T', 'U', 'K', 'N', 'O'],
