@@ -5,3 +5,4 @@ authors = ["Geoffrey Copin <copin.geoffrey@gmail.com>"]
 
 [dependencies]
 failure = "*"
+rand = "0.4"
