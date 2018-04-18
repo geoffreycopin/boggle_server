@@ -30,6 +30,10 @@ const DICES: [[char; 6]; 16] = [
 ];
 
 
+pub enum GameCommand {
+
+}
+
 pub struct Game {
     grid: [char; 16],
     played_words: HashMap<String, Vec<String>>,
@@ -45,13 +49,22 @@ impl Game {
         }
     }
 
+    pub fn with_logger(logger: Sender<LogCommands>) -> Game {
+        Game {
+            grid: Game::generate_grid(),
+            played_words: HashMap::new(),
+            log: Some(logger),
+        }
+    }
+
     fn generate_grid() -> [char; 16] {
         let mut rng = rand::thread_rng();
         let mut result = ['A'; 16];
 
-        for i in 0..result.len() {
-            result[i] = *rng.choose(&DICES[i]).unwrap()
-        }
+        DICES.iter()
+            .map(|dice| rng.choose(dice).unwrap())
+            .enumerate()
+            .for_each(|(idx, &letter)| result[idx] = letter);
 
         result
     }
@@ -88,7 +101,7 @@ mod test {
 
     #[test]
     fn new() {
-        let game = Game::new(None);
+        let game = Game::new();
         game.grid.iter().enumerate()
             .for_each(|(idx, c)| assert!(DICES[idx].contains(c)));
     }

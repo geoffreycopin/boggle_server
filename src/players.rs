@@ -1,60 +1,65 @@
 use super::{
     mock::StreamMock,
+    server::ClientStream,
     errors::{ServerError, ServerError::*},
+    game::GameCommand,
 };
 
 use std::{
-    io::{Write, Read},
+    io::{BufRead, Write, Read},
     collections::{HashMap, HashSet},
     iter::FromIterator,
-    sync::RwLock,
+    sync::mpsc::{Sender, Receiver, channel},
 };
 
 
+pub enum PlayersCommand {
+    Login(String, ClientStream)
+}
+
 pub struct Players<T: Write> {
-    players: RwLock<HashMap<String, T>>
+    players: HashMap<String, T>,
+    game: Sender<GameCommand>
 }
 
 impl<T: Write> Players<T> {
-    pub fn new() -> Self {
-        Players { players: RwLock::new(HashMap::new()) }
+    pub fn new(game: Sender<GameCommand>) -> Self {
+        Players { players: HashMap::new(), game }
     }
 
     pub fn login (&mut self, username: &str, mut stream: T) -> Result<(), ServerError> {
-        let mut guard = self.players.write().unwrap();
-        if guard.contains_key(username) {
+        if self.players.contains_key(username) {
             Err(ExistingUser{ username: username.to_string() })
         } else {
-            Players::register_user(username, stream, &mut guard);
+            self.register_user(username, stream);
             Ok(())
         }
     }
 
-    fn register_user(pseudo: &str, mut stream: T, users: &mut HashMap<String, T>) {
+    fn register_user(&mut self, pseudo: &str, mut stream: T) {
         let message = format!("CONNECTE/{}/\n", pseudo);
-        Players::broadcast_message(&message, users);
-        users.insert(pseudo.to_string(), stream);
+        self.broadcast_message(&message);
+        self.players.insert(pseudo.to_string(), stream);
     }
 
-    fn broadcast_message(message: &str, users: &mut HashMap<String, T>) {
-        for s in users.values_mut() {
+    fn broadcast_message(&mut self, message: &str) {
+        for s in self.players.values_mut() {
             s.write(message.as_bytes());
         }
     }
 
     pub fn logout(&mut self, username: &str) -> Result<(), ServerError> {
-        let mut guard = self.players.write().unwrap();
-        if guard.contains_key(username) {
-            Players::remove_user(username, &mut guard);
+        if self.players.contains_key(username) {
+            self.remove_user(username);
             Ok(())
         } else {
             Err(NonExistingUser { username: username.to_string() })
         }
     }
 
-    fn remove_user(username: &str, users: &mut HashMap<String, T>) {
-        users.remove(username);
-        Players::broadcast_message(&format!("SORT/{}/", username), users);
+    fn remove_user(&mut self, username: &str) {
+        self.players.remove(username);
+        self.broadcast_message(&format!("SORT/{}/", username));
     }
 }
 
@@ -65,15 +70,15 @@ mod test {
 
     #[test]
     fn login_ok() {
-        let mut players = Players::new();
+        let mut players = create_empty_players();
         players.login("newPlayer", StreamMock::new());
-        let users = players.players.into_inner().unwrap();
+        let users = players.players;
         assert_eq!(users.keys().collect::<Vec<&String>>(), vec!["newPlayer"]);
     }
 
     #[test]
     fn login_existing_user_returns_error() {
-        let mut players = Players::new();
+        let mut players = create_empty_players();
         players.login("newPlayer", StreamMock::new());
         match players.login("newPlayer", StreamMock::new()) {
             Err(ExistingUser {..}) => (),
@@ -95,7 +100,7 @@ mod test {
     fn logout_ok() {
         let (mut players, streams) = create_test_players();
         players.logout("user2");
-        let users = players.players.into_inner().unwrap();
+        let users = players.players;
 
         let actual = users.keys().map(|s| s.clone()).collect::<HashSet<String>>();
 
@@ -119,7 +124,7 @@ mod test {
     fn logout_broadcast_to_others() {
         let (mut players, _) = create_test_players();
         players.logout("user2");
-        let users = players.players.into_inner().unwrap();
+        let users = players.players;
         users.values().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "SORT/user2/")
@@ -127,9 +132,14 @@ mod test {
     }
 
     fn create_test_players() -> (Players<StreamMock>, Vec<StreamMock>) {
-        let mut players = Players::new();
+        let mut players = create_empty_players();
         let streams = add_users(&mut players, &vec!["user1", "user2", "user3"]);
         (players, streams)
+    }
+
+    fn create_empty_players() {
+        let (game_send, game_receive) = channel();
+        Players::new(game_send);
     }
 
     fn add_users(players: &mut Players<StreamMock>, usernames: &[&str]) -> Vec<StreamMock> {
