@@ -9,7 +9,7 @@ mod errors;
 mod server;
 
 use server::*;
-use log::start_logging;
+use players::Players;
 
 use std::{
     cell::RefCell,
@@ -29,8 +29,13 @@ fn serve() {
     let (game_send, game_receive) = channel();
     let (server_send, server_receive) = channel();
 
-    let server = Server::new(log_send, game_send, players_send);
+    let server = Server::new(log_send.clone(), game_send.clone(), players_send.clone());
     thread::spawn(|| server.start(server_receive));
+
+    let players: Players<TcpStream> = Players::new(game_send.clone());
+    thread::spawn(|| players::run(players, players_receive));
+
+    thread::spawn(|| log::log(log_receive));
 
     let listener = TcpListener::bind("127.0.0.1:2018").unwrap();
 

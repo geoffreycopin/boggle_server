@@ -9,7 +9,11 @@ use std::{
     io::{BufRead, Write, Read},
     collections::{HashMap, HashSet},
     iter::FromIterator,
-    sync::mpsc::{Sender, Receiver, channel},
+    sync::{Arc, RwLock, mpsc::{Sender, Receiver, channel}},
+    net::TcpStream,
+    thread,
+    cell::RefCell,
+    marker
 };
 
 
@@ -19,7 +23,7 @@ pub enum PlayersCommand {
 
 pub struct Players<T: Write> {
     players: HashMap<String, T>,
-    game: Sender<GameCommand>
+    game: Sender<GameCommand>,
 }
 
 impl<T: Write> Players<T> {
@@ -27,11 +31,11 @@ impl<T: Write> Players<T> {
         Players { players: HashMap::new(), game }
     }
 
-    pub fn login (&mut self, username: &str, mut stream: T) -> Result<(), ServerError> {
-        if self.players.contains_key(username) {
+    pub fn login (&mut self, username: String, mut stream: T) -> Result<(), ServerError> {
+        if self.players.contains_key(&username) {
             Err(ExistingUser{ username: username.to_string() })
         } else {
-            self.register_user(username, stream);
+            self.register_user(&username, stream);
             Ok(())
         }
     }
@@ -63,6 +67,24 @@ impl<T: Write> Players<T> {
     }
 }
 
+unsafe impl<T: Write> marker::Sync for Players<T> { }
+
+pub fn run(players: Players<TcpStream>, commands: Receiver<PlayersCommand>) {
+    let mut players = Arc::new(RwLock::new(players));
+    for cmd in commands {
+        match cmd {
+            PlayersCommand::Login(name, stream) => {
+                let p = players.clone();
+                let (reader, writer) = stream;
+                thread::spawn(move || process_login(p, name, writer));
+            }
+        };
+    }
+}
+
+fn process_login(players: Arc<RwLock<Players<TcpStream>>>, username: String, stream: TcpStream) {
+    players.write().unwrap().login(username, stream);
+}
 
 #[cfg(test)]
 mod test {
@@ -71,7 +93,7 @@ mod test {
     #[test]
     fn login_ok() {
         let mut players = create_empty_players();
-        players.login("newPlayer", StreamMock::new());
+        players.login("newPlayer".to_string(), StreamMock::new());
         let users = players.players;
         assert_eq!(users.keys().collect::<Vec<&String>>(), vec!["newPlayer"]);
     }
@@ -79,8 +101,8 @@ mod test {
     #[test]
     fn login_existing_user_returns_error() {
         let mut players = create_empty_players();
-        players.login("newPlayer", StreamMock::new());
-        match players.login("newPlayer", StreamMock::new()) {
+        players.login("newPlayer".to_string(), StreamMock::new());
+        match players.login("newPlayer".to_string(), StreamMock::new()) {
             Err(ExistingUser {..}) => (),
             _ => panic!("This call should return ServerError::ExistingUser")
         }
@@ -89,7 +111,7 @@ mod test {
     #[test]
     fn login_broadcast_to_others() {
         let (mut players, streams) = create_test_players();
-        players.login("newUser", StreamMock::new());
+        players.login("newUser".to_string(), StreamMock::new());
         streams.iter().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "CONNECTE/newUser/")
@@ -137,16 +159,16 @@ mod test {
         (players, streams)
     }
 
-    fn create_empty_players() {
+    fn create_empty_players<T: Write>() -> Players<T> {
         let (game_send, game_receive) = channel();
-        Players::new(game_send);
+        Players::new(game_send)
     }
 
     fn add_users(players: &mut Players<StreamMock>, usernames: &[&str]) -> Vec<StreamMock> {
         let mut streams = Vec::new();
         for u in usernames {
             let s = StreamMock::new();
-            players.login(u, s.clone());
+            players.login(u.to_string(), s.clone());
             streams.push(s);
         }
         streams

@@ -1,4 +1,4 @@
-use super:: {
+use super::{
     errors::{ServerError, ServerError::*},
     log::LogCommands,
 };
@@ -33,6 +33,8 @@ const DICES: [[char; 6]; 16] = [
 pub enum GameCommand {
 
 }
+
+unsafe impl Sync for GameCommand { }
 
 pub struct Game {
     grid: [char; 16],
