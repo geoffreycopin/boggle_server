@@ -1,11 +1,9 @@
 use super::{
     errors::{ServerError, ServerError::*},
-    log::LogCommands,
 };
 
 use std::{
     collections::HashMap,
-    sync::{RwLock, mpsc::Sender},
 };
 
 use rand::{self, Rng};
@@ -29,17 +27,9 @@ const DICES: [[char; 6]; 16] = [
     ['E', 'N', 'H', 'R', 'I', 'S'],
 ];
 
-
-pub enum GameCommand {
-
-}
-
-unsafe impl Sync for GameCommand { }
-
 pub struct Game {
     grid: [char; 16],
-    played_words: HashMap<String, Vec<String>>,
-    log: Option<Sender<LogCommands>>,
+    played_words: HashMap<String, Vec<String>>
 }
 
 impl Game {
@@ -47,15 +37,6 @@ impl Game {
         Game {
             grid: Game::generate_grid(),
             played_words: HashMap::new(),
-            log: None,
-        }
-    }
-
-    pub fn with_logger(logger: Sender<LogCommands>) -> Game {
-        Game {
-            grid: Game::generate_grid(),
-            played_words: HashMap::new(),
-            log: Some(logger),
         }
     }
 
@@ -71,7 +52,7 @@ impl Game {
         result
     }
 
-    fn letter_at(&self, mut line: char, column: usize) -> Result<char, ServerError> {
+    fn letter_at(&self, line: char, column: usize) -> Result<char, ServerError> {
         let idx = Game::index_of_coordinates(line, column)?;
         Ok(self.grid[idx])
     }

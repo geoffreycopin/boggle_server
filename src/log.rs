@@ -1,19 +1,27 @@
 use super::errors::ServerError;
 
 use std::{
-    sync::mpsc::{channel, Sender, Receiver},
-    thread,
+    sync::mpsc::Receiver,
+    fmt,
 };
 
 #[derive(Debug)]
 pub enum LogCommands {
-    Players(String),
-    Game(String),
+    Login(String),
     Error(ServerError)
+}
+
+impl fmt::Display for LogCommands {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &LogCommands::Login(ref name) => write!(f, "{} vient de se connecter", name),
+            &LogCommands::Error(ref e) => write!(f, "Erreur: {}", e)
+        }
+    }
 }
 
 pub fn log(commands: Receiver<LogCommands>) {
     for cmd in commands {
-        println!("{:#?}", cmd)
+        println!("{}", cmd)
     }
 }

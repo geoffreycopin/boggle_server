@@ -1,46 +1,32 @@
 use super::{
-    mock::StreamMock,
-    server::ClientStream,
+    server::*,
     errors::{ServerError, ServerError::*},
-    game::GameCommand,
 };
 
 use std::{
-    io::{BufRead, Write, Read},
-    collections::{HashMap, HashSet},
-    iter::FromIterator,
-    sync::{Arc, RwLock, mpsc::{Sender, Receiver, channel}},
-    net::TcpStream,
-    thread,
-    cell::RefCell,
-    marker
+    io::Write,
+    collections::HashMap,
 };
 
-
-pub enum PlayersCommand {
-    Login(String, ClientStream)
-}
-
 pub struct Players<T: Write> {
-    players: HashMap<String, T>,
-    game: Sender<GameCommand>,
+    players: HashMap<String, T>
 }
 
 impl<T: Write> Players<T> {
-    pub fn new(game: Sender<GameCommand>) -> Self {
-        Players { players: HashMap::new(), game }
+    pub fn new() -> Self {
+        Players { players: HashMap::new()}
     }
 
-    pub fn login (&mut self, username: String, mut stream: T) -> Result<(), ServerError> {
-        if self.players.contains_key(&username) {
-            Err(ExistingUser{ username: username.to_string() })
+    pub fn login (&mut self, name: &str, stream: T) -> Result<(), ServerError> {
+        if self.players.contains_key(name) {
+            Err(ExistingUser{ username: name.to_string() })
         } else {
-            self.register_user(&username, stream);
+            self.register_user(name, stream);
             Ok(())
         }
     }
 
-    fn register_user(&mut self, pseudo: &str, mut stream: T) {
+    fn register_user(&mut self, pseudo: &str, stream: T) {
         let message = format!("CONNECTE/{}/\n", pseudo);
         self.broadcast_message(&message);
         self.players.insert(pseudo.to_string(), stream);
@@ -67,33 +53,16 @@ impl<T: Write> Players<T> {
     }
 }
 
-unsafe impl<T: Write> marker::Sync for Players<T> { }
-
-pub fn run(players: Players<TcpStream>, commands: Receiver<PlayersCommand>) {
-    let mut players = Arc::new(RwLock::new(players));
-    for cmd in commands {
-        match cmd {
-            PlayersCommand::Login(name, stream) => {
-                let p = players.clone();
-                let (reader, writer) = stream;
-                thread::spawn(move || process_login(p, name, writer));
-            }
-        };
-    }
-}
-
-fn process_login(players: Arc<RwLock<Players<TcpStream>>>, username: String, stream: TcpStream) {
-    players.write().unwrap().login(username, stream);
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+    use super::super::mock::StreamMock;
+    use std::collections::HashSet;
 
     #[test]
     fn login_ok() {
         let mut players = create_empty_players();
-        players.login("newPlayer".to_string(), StreamMock::new());
+        players.login("newPlayer", StreamMock::new());
         let users = players.players;
         assert_eq!(users.keys().collect::<Vec<&String>>(), vec!["newPlayer"]);
     }
@@ -101,8 +70,8 @@ mod test {
     #[test]
     fn login_existing_user_returns_error() {
         let mut players = create_empty_players();
-        players.login("newPlayer".to_string(), StreamMock::new());
-        match players.login("newPlayer".to_string(), StreamMock::new()) {
+        players.login("newPlayer", StreamMock::new());
+        match players.login("newPlayer", StreamMock::new()) {
             Err(ExistingUser {..}) => (),
             _ => panic!("This call should return ServerError::ExistingUser")
         }
@@ -111,7 +80,7 @@ mod test {
     #[test]
     fn login_broadcast_to_others() {
         let (mut players, streams) = create_test_players();
-        players.login("newUser".to_string(), StreamMock::new());
+        players.login("newUser", StreamMock::new());
         streams.iter().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "CONNECTE/newUser/")
@@ -160,15 +129,14 @@ mod test {
     }
 
     fn create_empty_players<T: Write>() -> Players<T> {
-        let (game_send, game_receive) = channel();
-        Players::new(game_send)
+        Players::new()
     }
 
     fn add_users(players: &mut Players<StreamMock>, usernames: &[&str]) -> Vec<StreamMock> {
         let mut streams = Vec::new();
         for u in usernames {
             let s = StreamMock::new();
-            players.login(u.to_string(), s.clone());
+            players.login(u, s.clone());
             streams.push(s);
         }
         streams

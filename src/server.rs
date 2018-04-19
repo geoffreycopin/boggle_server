@@ -6,69 +6,85 @@ use super::{
 };
 
 use std::{
-    io::{BufReader, BufWriter, Read, Write, BufRead},
-    sync::{RwLock, mpsc::{Sender, Receiver}},
+    io::{BufReader, BufRead},
+    sync::{RwLock, mpsc::{Sender, Receiver}, Arc},
     thread,
-    marker::Send,
+    marker::Sync,
     net::TcpStream,
 };
 
 pub type LogChan = Sender<LogCommands>;
-pub type GameChan = Sender<GameCommand>;
-pub type PlayersChan = Sender<PlayersCommand>;
 pub type ClientStream = (BufReader<TcpStream>, TcpStream);
 
 pub enum Request {
-    PlayersRequest(PlayersCommand),
-    GameRequest(GameCommand),
+    Login(String),
 }
 
 pub struct Server {
-    game: GameChan,
-    players: PlayersChan,
+    game: RwLock<Game>,
+    players: RwLock<Players<TcpStream>>,
     log: LogChan,
 }
 
 impl Server {
-    pub fn new(log: LogChan, game: GameChan, players: PlayersChan) -> Self {
-        Server { game, players, log }
-    }
-
-    pub fn start(mut self, requests: Receiver<TcpStream>) {
-        for r in requests {
-            println!("Handling request !");
-            let reader = BufReader::new(r.try_clone().unwrap());
-            if let Err(e) = self.handle_request((reader, r)) {
-                self.log.send(LogCommands::Error(e));
-            }
+    pub fn new(log: LogChan, game: Game, players: Players<TcpStream>) -> Self {
+        Server {
+            game: RwLock::new(game),
+            players: RwLock::new(players),
+            log
         }
     }
 
-    fn handle_request(&mut self, mut stream: ClientStream) -> Result<(), ServerError> {
-        let mut req = String::new();
-        stream.0.read_line(&mut req);
-
-        match Server::parse_request(&req, stream)? {
-            Request::GameRequest(cmd) => self.game.send(cmd).unwrap(),
-            Request::PlayersRequest(cmd) => self.players.send(cmd).unwrap(),
-        };
-
-        Ok(())
+    fn handle_client_request(&self, request: &str, stream: TcpStream) {
+        let result = parse_request(request).and_then(|r| {
+            match r {
+                Request::Login(username) => self.login(&username, stream)
+            }
+        });
+        result.map_err(|e| {
+            self.log.send(LogCommands::Error(e.clone())).unwrap();
+        });
     }
 
-    fn parse_request(request: &str, stream: ClientStream) -> Result<Request, ServerError> {
-        let components: Vec<&str> = request.split("/").collect();
-
-        let req = match components.get(0) {
-            Some(&"CONNEXION") => Server::parse_connexion_req(&components, stream),
-            _ => Err(()),
-        };
-
-        req.or(Err(ServerError::bad_request(request.to_string())))
+    fn login(&self, username: &str, writer: TcpStream) -> Result<(), ServerError> {
+        let mut guard = self.players.write().unwrap();
+        guard.login(username, writer).map(|_|
+            self.log.send(LogCommands::Login(username.to_string())).unwrap()
+        )
     }
+}
 
-    fn parse_connexion_req(components: &[&str], stream: ClientStream) -> Result<Request, ()> {
-        let username = components.get(1).unwrap();
-        Ok(Request::PlayersRequest(PlayersCommand::Login(username.to_string(), stream)))
+unsafe impl Sync for Server { }
+
+pub fn run(server: Server, streams: Receiver<TcpStream>) {
+    let server = Arc::new(server);
+
+    for sock in streams {
+        let s = server.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(sock.try_clone().unwrap());
+            for request in reader.lines() {
+                if let Ok(r) = request {
+                    s.handle_client_request(&r, sock.try_clone().unwrap());
+                }
+            }
+        });
     }
+}
+
+fn parse_request(req: &str) -> Result<Request, ServerError> {
+    let components: Vec<&str> = req.split("/").collect();
+    let err = ServerError::bad_request(req.to_string());
+
+    let request = match components.get(0).ok_or(err.clone())? {
+        &"CONNEXION" => parse_connexion(&components),
+        _ => Err(())
+    };
+
+    request.map_err(|_| err)
+}
+
+fn parse_connexion(components: &[&str]) -> Result<Request, ()> {
+    let username = components.get(1).ok_or(())?;
+    Ok(Request::Login(username.to_string()))
 }

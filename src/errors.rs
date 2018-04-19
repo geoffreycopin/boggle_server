@@ -1,6 +1,6 @@
 
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Clone, Fail)]
 pub enum ServerError {
     #[fail(display = "L'utilisateur {} existe déja.", username)]
     ExistingUser { username: String },
