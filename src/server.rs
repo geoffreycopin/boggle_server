@@ -6,51 +6,69 @@ use super::{
 };
 
 use std::{
-    io::{BufReader, BufRead},
+    io::{BufReader, BufRead, Write},
     sync::{RwLock, mpsc::{Sender, Receiver}, Arc},
     thread,
     marker::Sync,
-    net::TcpStream,
+    net::{TcpStream, Shutdown},
 };
 
-pub type LogChan = Sender<LogCommands>;
-pub type ClientStream = (BufReader<TcpStream>, TcpStream);
+pub type LogChan = Sender<LogMsg>;
 
 pub enum Request {
     Login(String),
+    Logout(String),
 }
 
 pub struct Server {
     game: RwLock<Game>,
     players: RwLock<Players<TcpStream>>,
-    log: LogChan,
+    logger: LogChan,
 }
 
 impl Server {
-    pub fn new(log: LogChan, game: Game, players: Players<TcpStream>) -> Self {
+    pub fn new(logger: LogChan, game: Game, players: Players<TcpStream>) -> Self {
         Server {
             game: RwLock::new(game),
             players: RwLock::new(players),
-            log
+            logger
         }
     }
 
     fn handle_client_request(&self, request: &str, stream: TcpStream) {
         let result = parse_request(request).and_then(|r| {
             match r {
-                Request::Login(username) => self.login(&username, stream)
+                Request::Login(name) => self.login(&name, stream),
+                Request::Logout(name) => self.logout(&name, stream),
             }
         });
         result.map_err(|e| {
-            self.log.send(LogCommands::Error(e.clone())).unwrap();
+            self.log(LogMsg::err(e))
         });
     }
 
-    fn login(&self, username: &str, writer: TcpStream) -> Result<(), ServerError> {
+    fn login(&self, username: &str, mut writer: TcpStream) -> Result<(), ServerError> {
         let mut guard = self.players.write().unwrap();
-        guard.login(username, writer).map(|_|
-            self.log.send(LogCommands::Login(username.to_string())).unwrap()
-        )
+        let res =  guard.login(username, writer.try_clone().unwrap());
+        if let Err(ref e) = res {
+            writer.shutdown(Shutdown::Both).unwrap();
+        } else {
+            let grid = self.game.read().unwrap().grid_str();
+            writer.write(format!("WELCOME/{}/<SCORES>/\n", grid).as_bytes());
+            self.log(LogMsg::login(username))
+        }
+        res
+    }
+
+    fn logout(&self, username: &str, writer: TcpStream) -> Result<(), ServerError> {
+        writer.shutdown(Shutdown::Both);
+        let mut guard = self.players.write().unwrap();
+        guard.logout(username)
+            .map(|_| self.log(LogMsg::logout(username)))
+    }
+
+    fn log(&self, msg: LogMsg) {
+        self.logger.send(msg).unwrap()
     }
 }
 
@@ -78,6 +96,7 @@ fn parse_request(req: &str) -> Result<Request, ServerError> {
 
     let request = match components.get(0).ok_or(err.clone())? {
         &"CONNEXION" => parse_connexion(&components),
+        &"SORT" => parse_sort(&components),
         _ => Err(())
     };
 
@@ -87,4 +106,9 @@ fn parse_request(req: &str) -> Result<Request, ServerError> {
 fn parse_connexion(components: &[&str]) -> Result<Request, ()> {
     let username = components.get(1).ok_or(())?;
     Ok(Request::Login(username.to_string()))
+}
+
+fn parse_sort(components: &[&str]) -> Result<Request, ()> {
+    let username = components.get(1).ok_or(())?;
+    Ok(Request::Logout(username.to_string()))
 }

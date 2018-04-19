@@ -49,7 +49,7 @@ impl<T: Write> Players<T> {
 
     fn remove_user(&mut self, username: &str) {
         self.players.remove(username);
-        self.broadcast_message(&format!("SORT/{}/", username));
+        self.broadcast_message(&format!("DECONNEXION/{}/", username));
     }
 }
 
@@ -118,7 +118,7 @@ mod test {
         let users = players.players;
         users.values().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
-            assert_eq!(last_line, "SORT/user2/")
+            assert_eq!(last_line, "DECONNEXION/user2/")
         })
     }
 

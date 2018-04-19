@@ -4,6 +4,7 @@ use super::{
 
 use std::{
     collections::HashMap,
+    iter::FromIterator,
 };
 
 use rand::{self, Rng};
@@ -52,6 +53,10 @@ impl Game {
         result
     }
 
+    pub fn grid_str(&self) -> String {
+        String::from_iter(self.grid.iter())
+    }
+
     fn letter_at(&self, line: char, column: usize) -> Result<char, ServerError> {
         let idx = Game::index_of_coordinates(line, column)?;
         Ok(self.grid[idx])
@@ -67,10 +72,10 @@ impl Game {
 
     fn index_of_letter(letter: char) -> usize {
         match letter {
-            'A' => 0,
-            'B' => 1,
-            'C' => 2,
-            'D' => 3,
+            'a' | 'A' => 0,
+            'b' | 'B' => 1,
+            'c' | 'C' => 2,
+            'd' | 'D' => 3,
             _ => panic!("Invalid character index !")
         }
     }
