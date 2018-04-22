@@ -19,7 +19,7 @@ impl<T: Write> Players<T> {
 
     pub fn login (&mut self, name: &str, stream: T) -> Result<(), ServerError> {
         if self.players.contains_key(name) {
-            Err(ExistingUser{ username: name.to_string() })
+            Err(ServerError::existing_user(name.to_string()))
         } else {
             self.register_user(name, stream);
             Ok(())
@@ -49,7 +49,7 @@ impl<T: Write> Players<T> {
             self.remove_user(username);
             Ok(())
         } else {
-            Err(NonExistingUser { username: username.to_string() })
+            Err(ServerError::non_existing_user(username.to_string()))
         }
     }
 

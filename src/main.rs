@@ -7,6 +7,7 @@ mod log;
 mod mock;
 mod errors;
 mod server;
+mod dict;
 
 use server::*;
 

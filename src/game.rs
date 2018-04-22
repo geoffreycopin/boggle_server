@@ -1,5 +1,6 @@
 use super::{
     errors::{ServerError, ServerError::*},
+    dict::{Dict, LocalDict},
 };
 
 use std::{
@@ -30,16 +31,24 @@ const DICES: [[char; 6]; 16] = [
 
 pub struct Game {
     grid: [char; 16],
-    played_words: HashMap<String, Vec<String>>,
+    player_words: HashMap<String, Vec<String>>,
+    played: HashSet<String>,
     turn: u64,
+    dict: Box<Dict>,
 }
 
 impl Game {
     pub fn new() -> Game {
+        Game::with_dict(Box::new(LocalDict::new()))
+    }
+
+    pub fn with_dict(dict: Box<Dict>) -> Game {
         Game {
             grid: Game::generate_grid(),
-            played_words: HashMap::new(),
+            player_words: HashMap::new(),
+            played: HashSet::new(),
             turn: 0,
+            dict
         }
     }
 
@@ -59,15 +68,32 @@ impl Game {
         String::from_iter(self.grid.iter())
     }
 
+    pub fn submit_trajectory(&mut self) {
+        // TODO: implement
+        unimplemented!()
+    }
+
+    pub fn check_trajectory(trajectory: &str) -> Result<(), ServerError> {
+        // TODO: implement
+        unimplemented!()
+    }
+
     pub fn new_turn(&mut self) {
         self.grid = Game::generate_grid();
         self.turn += 1;
     }
 
     pub fn update_users(&mut self, users: HashSet<&str>) {
-        for players in self.played_words.values_mut() {
-            players.retain(|p| users.contains(&p.as_str()))
-        }
+        self.player_words.retain(|key, _| users.contains(&key.as_str()));
+        self.played = self.compute_played()
+    }
+
+    fn compute_played(&self) -> HashSet<String> {
+        HashSet::from_iter(
+            self.player_words.values()
+                .flat_map(|v| v)
+                .map(|v| v.to_string())
+        )
     }
 
     pub fn users_scores(&self, users: &[String]) -> Vec<(String, u32)> {
@@ -77,16 +103,11 @@ impl Game {
     }
 
     fn user_score(&self, user: &str) -> u32 {
-        self.words_played_by(user).iter()
-            .map(|w| Game::word_score(w))
-            .sum()
-    }
-
-    fn words_played_by(&self, user: &str) -> Vec<&str> {
-        self.played_words.keys()
-            .filter(|&word| self.played_words[word].contains(&user.to_string()))
-            .map(|u| u.as_str())
-            .collect()
+        self.player_words.get(user).map_or(0, |words| {
+            words.iter()
+                .map(|w| Game::word_score(w))
+                .sum()
+        })
     }
 
     fn word_score(word: &str) -> u32 {
@@ -165,16 +186,15 @@ mod test {
     #[test]
     fn update_users() {
         let mut game = Game::new();
-        game.played_words.insert("word".to_string(),
-                                 vec!["user1".to_string(), "user2".to_string()]);
-        game.played_words.insert("word2".to_string(), vec!["user3".to_string()]);
+        game.player_words.insert("user1".to_string(), vec!["word1".to_string()]);
+        game.player_words.insert("user2".to_string(), vec!["word2".to_string()]);
+        game.player_words.insert("user3".to_string(), vec!["word3".to_string()]);
 
         let users = vec!["user1", "user3"];
         game.update_users(HashSet::from_iter(users));
 
         let expected: HashSet<&str> = HashSet::from_iter(vec!["user1", "user3"]);
-        let actual: HashSet<&str> = game.played_words.values()
-            .flat_map(|p| p)
+        let actual: HashSet<&str> = game.player_words.keys()
             .map(|p| p.as_str())
             .collect();
 
