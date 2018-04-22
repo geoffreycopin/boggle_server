@@ -18,7 +18,10 @@ pub type LogChan = Sender<LogMsg>;
 pub enum Request {
     Login(String),
     Logout(String),
+    Found(String, String),
 }
+
+// TODO: implement TROUVE/mot/trajectoire
 
 pub struct Server {
     game: RwLock<Game>,
@@ -53,17 +56,16 @@ impl Server {
         if let Err(ref e) = res {
             writer.shutdown(Shutdown::Both).unwrap();
         } else {
-            self.welcome(&mut writer, guard.users());
+            self.welcome(&mut writer, &guard.users());
             self.log(LogMsg::login(username))
         }
         res
     }
 
-    fn welcome(&self, user_stream: &mut TcpStream, users: Vec<String>) {
+    fn welcome(&self, user_stream: &mut TcpStream, users: &[String]) {
         let game = self.game.read().unwrap();
-        let grid = game.grid_str();
-        let scores = Server::scores_to_string(game.users_scores(&users));
-        user_stream.write(format!("WELCOME/{}/{}/\n", grid, scores).as_bytes());
+        let welcome_str = game.welcome_str(&users);
+        user_stream.write(welcome_str.as_bytes()).unwrap();
     }
 
     fn logout(&self, username: &str, writer: TcpStream) -> Result<(), ServerError> {

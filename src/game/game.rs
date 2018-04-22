@@ -2,6 +2,8 @@ use super::*;
 
 use rand::{self, Rng};
 
+use std::io::Write;
+
 pub struct Game {
     grid: [char; 16],
     player_words: HashMap<String, Vec<String>>,
@@ -20,7 +22,7 @@ impl Game {
             grid: Game::generate_grid(),
             player_words: HashMap::new(),
             played: HashSet::new(),
-            turn: 0,
+            turn: 1,
             dict
         }
     }
@@ -37,8 +39,20 @@ impl Game {
         result
     }
 
-    pub fn grid_str(&self) -> String {
+    pub fn welcome_str(&self, users: &[String]) -> String {
+        let grid = String::from_iter(self.grid.iter());
+        let scores = self.scores_str(users);
+        format!("BIENVENUE/{}/{}*{}\n", grid, self.turn, scores)
+    }
+
+    fn grid_str(&self) -> String {
         String::from_iter(self.grid.iter())
+    }
+
+    fn scores_str(&self, users: &[String]) -> String  {
+        users.iter()
+            .map(|u| format!("{}*{}", u, self.user_score(u)))
+            .fold(String::new(), |acc, usr_score| acc + &usr_score)
     }
 
     pub fn submit_trajectory(&mut self, user: &str, t: &str) -> Result<(), ServerError> {
@@ -168,6 +182,25 @@ mod test {
         game.submit_trajectory("user2", "A2A1B2");
         game.update_users(HashSet::from_iter(vec!["user2"]));
         assert_eq!(game.played, HashSet::from_iter(vec!["ILE".to_string()]));
+    }
+
+    #[test]
+    fn welcome_str() {
+        let mut game = create_test_game();
+        game.submit_trajectory("user1", "C2B1A2A3B2C3D2");
+        assert_eq!(game.welcome_str(&vec!["user1".to_string()]), "BIENVENUE/LIDAREJULTNEATNG/1*user1*5\n")
+    }
+
+    #[test]
+    fn new_turn() {
+        let mut game = create_test_game();
+        let mut old_grid = game.grid;
+        let old_turn = game.turn;
+
+        game.new_turn();
+
+        assert_eq!(game.turn, old_turn + 1);
+        assert_ne!(game.grid, old_grid);
     }
 
     fn create_test_game() -> Game {
