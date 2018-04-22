@@ -26,6 +26,12 @@ impl<T: Write> Players<T> {
         }
     }
 
+    pub fn users(&self) -> Vec<String> {
+        self.players.keys()
+            .map(|key| key.to_string())
+            .collect()
+    }
+
     fn register_user(&mut self, pseudo: &str, stream: T) {
         let message = format!("CONNECTE/{}/\n", pseudo);
         self.broadcast_message(&message);
@@ -120,6 +126,15 @@ mod test {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "DECONNEXION/user2/")
         })
+    }
+
+    #[test]
+    fn users() {
+        let (players, _) = create_test_players();
+        assert_eq!(players.users().len(), 3);
+        assert!(players.users().contains(&"user1".to_string()));
+        assert!(players.users().contains(&"user2".to_string()));
+        assert!(players.users().contains(&"user3".to_string()));
     }
 
     fn create_test_players() -> (Players<StreamMock>, Vec<StreamMock>) {

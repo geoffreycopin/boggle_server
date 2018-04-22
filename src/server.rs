@@ -53,11 +53,17 @@ impl Server {
         if let Err(ref e) = res {
             writer.shutdown(Shutdown::Both).unwrap();
         } else {
-            let grid = self.game.read().unwrap().grid_str();
-            writer.write(format!("WELCOME/{}/<SCORES>/\n", grid).as_bytes());
+            self.welcome(&mut writer, guard.users());
             self.log(LogMsg::login(username))
         }
         res
+    }
+
+    fn welcome(&self, user_stream: &mut TcpStream, users: Vec<String>) {
+        let game = self.game.read().unwrap();
+        let grid = game.grid_str();
+        let scores = Server::scores_to_string(game.users_scores(&users));
+        user_stream.write(format!("WELCOME/{}/{}/\n", grid, scores).as_bytes());
     }
 
     fn logout(&self, username: &str, writer: TcpStream) -> Result<(), ServerError> {
@@ -69,6 +75,12 @@ impl Server {
 
     fn log(&self, msg: LogMsg) {
         self.logger.send(msg).unwrap()
+    }
+
+    fn scores_to_string(scores: Vec<(String, u32)>) -> String {
+        scores.into_iter()
+            .map(|(user, score)| format!("{}*{}", user, score))
+            .fold(String::new(), |acc, val| acc + &val)
     }
 }
 
