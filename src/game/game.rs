@@ -1,33 +1,6 @@
-use super::{
-    errors::{ServerError, ServerError::*},
-    dict::{Dict, LocalDict},
-};
-
-use std::{
-    collections::{HashMap, HashSet},
-    iter::FromIterator,
-};
+use super::*;
 
 use rand::{self, Rng};
-
-const DICES: [[char; 6]; 16] = [
-    ['E', 'T', 'U', 'K', 'N', 'O'],
-    ['E', 'V', 'G', 'T', 'I', 'N'],
-    ['D', 'E', 'C', 'A', 'M', 'P'],
-    ['I', 'E', 'L', 'R', 'U', 'W'],
-    ['E', 'H', 'I', 'F', 'S', 'E'],
-    ['R', 'E', 'C', 'A', 'L', 'S'],
-    ['E', 'N', 'T', 'D', 'O', 'S'],
-    ['O', 'F', 'X', 'R', 'I', 'A'],
-    ['N', 'A', 'V', 'E', 'D', 'Z'],
-    ['E', 'I', 'O', 'A', 'T', 'A'],
-    ['G', 'L', 'E', 'N', 'Y', 'U'],
-    ['B', 'M', 'A', 'Q', 'J', 'O'],
-    ['T', 'L', 'I', 'B', 'R', 'A'],
-    ['S', 'P', 'U', 'L', 'T', 'E'],
-    ['A', 'I', 'M', 'S', 'O', 'R'],
-    ['E', 'N', 'H', 'R', 'I', 'S'],
-];
 
 pub struct Game {
     grid: [char; 16],
@@ -73,11 +46,6 @@ impl Game {
         unimplemented!()
     }
 
-    pub fn check_trajectory(trajectory: &str) -> Result<(), ServerError> {
-        // TODO: implement
-        unimplemented!()
-    }
-
     pub fn new_turn(&mut self) {
         self.grid = Game::generate_grid();
         self.turn += 1;
@@ -105,47 +73,16 @@ impl Game {
     fn user_score(&self, user: &str) -> u32 {
         self.player_words.get(user).map_or(0, |words| {
             words.iter()
-                .map(|w| Game::word_score(w))
+                .map(|w| word_score(w))
                 .sum()
         })
     }
 
-    fn word_score(word: &str) -> u32 {
-        match word.len() {
-            0...2 => 0,
-            3...4 => 1,
-            5 => 2,
-            6 => 3,
-            7 => 5,
-            _ => 11
-        }
-    }
-
     fn letter_at(&self, line: char, column: usize) -> Result<char, ServerError> {
-        let idx = Game::index_of_coordinates(line, column)?;
+        let idx = index_of_coordinates(line, column)?;
         Ok(self.grid[idx])
     }
-
-    fn index_of_coordinates(line: char, column: usize) -> Result<usize, ServerError> {
-        if line < 'A' || line > 'D' || column < 1 || column > 4 {
-            Err(InvalidCoordinates { line, column })
-        } else {
-            Ok((column - 1) + (4 * Game::index_of_letter(line)))
-        }
-    }
-
-    fn index_of_letter(letter: char) -> usize {
-        match letter {
-            'a' | 'A' => 0,
-            'b' | 'B' => 1,
-            'c' | 'C' => 2,
-            'd' | 'D' => 3,
-            _ => panic!("Invalid character index !")
-        }
-    }
 }
-
-
 
 #[cfg(test)]
 mod test {
@@ -201,4 +138,3 @@ mod test {
         assert_eq!(expected, actual);
     }
 }
-
