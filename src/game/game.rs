@@ -41,9 +41,19 @@ impl Game {
         String::from_iter(self.grid.iter())
     }
 
-    pub fn submit_trajectory(&mut self) {
-        // TODO: implement
-        unimplemented!()
+    pub fn submit_trajectory(&mut self, user: &str, t: &str) -> Result<(), ServerError> {
+        let trajectory = trajectory_of_string(t)
+            .map_err(|_| ServerError::bad_trajectory(t.to_string()))?;
+        let word = self.word_of_trajectory(&trajectory);
+        self.player_words.entry(user.to_string()).or_insert(vec![]).push(word);
+        Ok(())
+    }
+
+    fn word_of_trajectory(&self, trajectory: &[(char, usize)]) -> String {
+        trajectory.iter()
+            .map(|&(line, col)| index_of_coordinates(line, col).unwrap())
+            .map(|idx| self.grid[idx])
+            .collect()
     }
 
     pub fn new_turn(&mut self) {
@@ -93,31 +103,6 @@ mod test {
         let game = Game::new();
         game.grid.iter().enumerate()
             .for_each(|(idx, c)| assert!(DICES[idx].contains(c)));
-    }
-
-    #[test]
-    fn index_of_coordinates() {
-        assert_eq!(Game::index_of_coordinates('C', 2).unwrap(), 9);
-        assert_eq!(Game::index_of_coordinates('A', 1).unwrap(), 0);
-        assert_eq!(Game::index_of_coordinates('D', 4).unwrap(), 15);
-    }
-
-    #[test]
-    fn invalid_coordinates_returns_error() {
-        match Game::index_of_coordinates('E', 1) {
-            Err(InvalidCoordinates {..}) => (),
-            _ => panic!("This call sould return an error !")
-        }
-
-        match Game::index_of_coordinates('E', 0) {
-            Err(InvalidCoordinates {..}) => (),
-            _ => panic!("This call sould return an error !")
-        }
-
-        match Game::index_of_coordinates('E', 5) {
-            Err(InvalidCoordinates {..}) => (),
-            _ => panic!("This call sould return an error !")
-        }
     }
 
     #[test]
