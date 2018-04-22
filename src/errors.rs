@@ -21,7 +21,7 @@ pub enum ServerError {
     AlreadyPlayed { word: String },
 
     #[fail(display = "La trajectoire {} est invalide.", trajectory)]
-    BadTrajectory { trajectory: String}
+    BadTrajectory { trajectory: String},
 }
 
 impl ServerError {

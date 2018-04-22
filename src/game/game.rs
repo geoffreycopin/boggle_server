@@ -44,8 +44,14 @@ impl Game {
     pub fn submit_trajectory(&mut self, user: &str, t: &str) -> Result<(), ServerError> {
         let trajectory = trajectory_of_string(t)
             .map_err(|_| ServerError::bad_trajectory(t.to_string()))?;
+
         let word = self.word_of_trajectory(&trajectory);
-        self.player_words.entry(user.to_string()).or_insert(vec![]).push(word);
+        if self.played.contains(&word) {
+            return Err(ServerError::already_played(word));
+        }
+
+        self.player_words.entry(user.to_string()).or_insert(vec![]).push(word.clone());
+        self.played.insert(word);
         Ok(())
     }
 
@@ -121,5 +127,55 @@ mod test {
             .collect();
 
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn word_of_trajectory() {
+        let game = create_test_game();
+        let trajectory = vec![('C', 2), ('B', 1), ('A', 2), ('A', 3), ('B', 2), ('C', 3), ('D', 2)];
+        assert_eq!(game.word_of_trajectory(&trajectory), "TRIDENT");
+    }
+
+    #[test]
+    fn submit_word() {
+        let mut game = create_test_game();
+        game.submit_trajectory("user1", "C2B1A2A3B2C3D2");
+        let expected = vec!["TRIDENT".to_string()];
+        assert_eq!(game.player_words.get("user1").unwrap(), &expected);
+    }
+
+    #[test]
+    fn already_played_word_is_refused() {
+        let mut game = create_test_game();
+        game.submit_trajectory("user1", "C2B1A2A3B2C3D2");
+        match game.submit_trajectory("user2", "C2B1A2A3B2C3D2") {
+            Err(ServerError::AlreadyPlayed {..}) => (),
+            _ => panic!("{} has already been played !")
+        }
+    }
+
+    #[test]
+    fn submit_word_adds_word_to_played() {
+        let mut game = create_test_game();
+        game.submit_trajectory("user1", "C2B1A2A3B2C3D2");
+        assert!(game.played.contains("TRIDENT"));
+    }
+
+    #[test]
+    fn update_users_updates_played() {
+        let mut game = create_test_game();
+        game.submit_trajectory("user1", "C2B1A2A3B2C3D2");
+        game.submit_trajectory("user2", "A2A1B2");
+        game.update_users(HashSet::from_iter(vec!["user2"]));
+        assert_eq!(game.played, HashSet::from_iter(vec!["ILE".to_string()]));
+    }
+
+    fn create_test_game() -> Game {
+        let mut game = Game::new();
+        game.grid = ['L', 'I', 'D', 'A',
+                     'R', 'E', 'J', 'U',
+                     'L', 'T', 'N', 'E',
+                     'A', 'T', 'N', 'G' ];
+        game
     }
 }
