@@ -19,7 +19,7 @@ impl<T: Write> Players<T> {
 
     pub fn login (&mut self, name: &str, stream: T) -> Result<(), ServerError> {
         if self.players.contains_key(name) {
-            Err(ServerError::existing_user(name.to_string()))
+            Err(ServerError::existing_user(name))
         } else {
             self.register_user(name, stream);
             Ok(())
@@ -38,7 +38,7 @@ impl<T: Write> Players<T> {
         self.players.insert(pseudo.to_string(), stream);
     }
 
-    fn broadcast_message(&mut self, message: &str) {
+    pub fn broadcast_message(&mut self, message: &str) {
         for s in self.players.values_mut() {
             s.write(message.as_bytes());
         }
@@ -49,7 +49,7 @@ impl<T: Write> Players<T> {
             self.remove_user(username);
             Ok(())
         } else {
-            Err(ServerError::non_existing_user(username.to_string()))
+            Err(ServerError::non_existing_user(username))
         }
     }
 
@@ -60,7 +60,7 @@ impl<T: Write> Players<T> {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
     use super::super::mock::StreamMock;
     use std::collections::HashSet;
@@ -137,7 +137,7 @@ mod test {
         assert!(players.users().contains(&"user3".to_string()));
     }
 
-    fn create_test_players() -> (Players<StreamMock>, Vec<StreamMock>) {
+    pub fn create_test_players() -> (Players<StreamMock>, Vec<StreamMock>) {
         let mut players = create_empty_players();
         let streams = add_users(&mut players, &vec!["user1", "user2", "user3"]);
         (players, streams)

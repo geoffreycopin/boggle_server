@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    io::{Write, Error},
+    io::{Read, Write, Error},
     rc::Rc,
 };
 

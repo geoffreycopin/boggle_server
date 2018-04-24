@@ -6,6 +6,8 @@ use std::{
     io::{self, BufReader, prelude::*},
 };
 
+use unidecode::unidecode;
+
 pub struct LocalDict {
     words: HashSet<String>
 }
@@ -24,18 +26,14 @@ impl LocalDict {
         let f = File::open(file).expect(&format!("Cannot open file: {}", file));
         let reader = BufReader::new(f);
         reader.lines()
-            .map(|l| l.expect(&format!("Error while reading dictionary: {}", file)))
+            .map(|l| unidecode(&l.expect(&format!("Error while reading dictionary: {}", file))))
             .collect()
     }
 }
 
 impl Dict for LocalDict {
-    fn contains(&self, word: &str) -> Result<(), ServerError> {
-        if self.words.contains(word) {
-            Ok(())
-        } else {
-            Err(ServerError::non_existing_word(word.to_string()))
-        }
+    fn contains(&self, word: &str) -> bool {
+        self.words.contains(&word.to_lowercase())
     }
 }
 
@@ -48,23 +46,5 @@ mod test {
     #[should_panic]
     fn new_panics_on_invalid_dict_file() {
         let dict = LocalDict::from_dictionary("non_existing_dict.txt");
-    }
-
-    #[test]
-    fn contains() {
-        let dict = LocalDict::new();
-        match dict.contains("bombance") {
-            Ok(()) => (),
-            _ => panic!("This call should return Ok(())")
-        }
-    }
-
-    #[test]
-    fn doesnt_contain() {
-        let dict = LocalDict::new();
-        match dict.contains("preposterous") {
-            Err(ServerError::NonExistingWord {..}) => (),
-            _ => panic!("This call should return ServerError::NonExistingWord")
-        }
     }
 }

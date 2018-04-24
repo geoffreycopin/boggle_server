@@ -6,3 +6,4 @@ authors = ["Geoffrey Copin <copin.geoffrey@gmail.com>"]
 [dependencies]
 failure = "*"
 rand = "0.4"
+unidecode = "0.3.0"

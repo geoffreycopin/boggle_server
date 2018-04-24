@@ -1,6 +1,6 @@
 use super::{
     log::*,
-    game::*,
+    board::*,
     players::*,
     errors::ServerError,
 };
@@ -18,19 +18,16 @@ pub type LogChan = Sender<LogMsg>;
 pub enum Request {
     Login(String),
     Logout(String),
-    Found(String, String),
 }
 
-// TODO: implement TROUVE/mot/trajectoire
-
 pub struct Server {
-    game: RwLock<Game>,
+    game: RwLock<Board>,
     players: RwLock<Players<TcpStream>>,
     logger: LogChan,
 }
 
 impl Server {
-    pub fn new(logger: LogChan, game: Game, players: Players<TcpStream>) -> Self {
+    pub fn new(logger: LogChan, game: Board, players: Players<TcpStream>) -> Self {
         Server {
             game: RwLock::new(game),
             players: RwLock::new(players),
@@ -106,7 +103,7 @@ pub fn run(server: Server, streams: Receiver<TcpStream>) {
 
 fn parse_request(req: &str) -> Result<Request, ServerError> {
     let components: Vec<&str> = req.split("/").collect();
-    let err = ServerError::bad_request(req.to_string());
+    let err = ServerError::bad_request(req);
 
     let request = match components.get(0).ok_or(err.clone())? {
         &"CONNEXION" => parse_connexion(&components),

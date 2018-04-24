@@ -1,6 +1,6 @@
-mod game;
+pub mod board;
 
-pub use self::game::Game;
+pub use self::board::Board;
 
 use super::{
     dict::{Dict, LocalDict},

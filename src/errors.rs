@@ -22,34 +22,56 @@ pub enum ServerError {
 
     #[fail(display = "La trajectoire {} est invalide.", trajectory)]
     BadTrajectory { trajectory: String},
+
+    #[fail(display = "La trajectoire {} ne correspond pas au mot {}.", trajectory, word)]
+    NoMatch { word: String, trajectory: String},
 }
 
 impl ServerError {
-    pub fn existing_user(username: String) -> ServerError {
-        ServerError::ExistingUser { username }
+    pub fn existing_user(username: &str) -> ServerError {
+        ServerError::ExistingUser {
+            username: username.to_string()
+        }
     }
 
-    pub fn non_existing_user(username: String) -> ServerError {
-        ServerError::NonExistingUser { username }
+    pub fn non_existing_user(username: &str) -> ServerError {
+        ServerError::NonExistingUser {
+            username: username.to_string()
+        }
     }
 
     pub fn invalid_coordinates(line: char, column: usize) -> ServerError {
         ServerError::InvalidCoordinates { line, column }
     }
 
-    pub fn bad_request(request: String) -> ServerError {
-        ServerError::BadRequest { request }
+    pub fn bad_request(request: &str) -> ServerError {
+        ServerError::BadRequest {
+            request: request.to_string()
+        }
     }
 
-    pub fn non_existing_word(word: String) -> ServerError {
-        ServerError::NonExistingWord { word }
+    pub fn non_existing_word(word: &str) -> ServerError {
+        ServerError::NonExistingWord {
+            word: word.to_string()
+        }
     }
 
-    pub fn already_played(word: String) -> ServerError {
-        ServerError::AlreadyPlayed { word }
+    pub fn already_played(word: &str) -> ServerError {
+        ServerError::AlreadyPlayed {
+            word: word.to_string()
+        }
     }
 
-    pub fn bad_trajectory(trajectory: String) -> ServerError {
-        ServerError::BadTrajectory { trajectory }
+    pub fn bad_trajectory(trajectory: &str) -> ServerError {
+        ServerError::BadTrajectory {
+            trajectory: trajectory.to_string()
+        }
+    }
+
+    pub fn no_match(trajectory: &str , word: &str) -> ServerError {
+        ServerError::NoMatch {
+            trajectory: trajectory.to_string(),
+            word: word.to_string(),
+        }
     }
 }
