@@ -62,7 +62,7 @@ impl<T: Write + Clone> Game<T> {
         players.broadcast_message(&msg);
     }
 
-    pub fn found(&self, username: &str, stream: &mut T, word: &str, trajectory: &str)
+    pub fn found(&self, username: &str, word: &str, trajectory: &str)
         -> Result<(), ServerError>
     {
         let word = word.to_lowercase();

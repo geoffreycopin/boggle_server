@@ -25,6 +25,9 @@ pub enum ServerError {
 
     #[fail(display = "La trajectoire {} ne correspond pas au mot {}.", trajectory, word)]
     NoMatch { word: String, trajectory: String},
+
+    #[fail(display = "La requête <{}> ne peut être soumise par un utilisateur non connecté.", request)]
+    UnauthorizedRequest { request: String },
 }
 
 impl ServerError {
@@ -72,6 +75,12 @@ impl ServerError {
         ServerError::NoMatch {
             trajectory: trajectory.to_string(),
             word: word.to_string(),
+        }
+    }
+
+    pub fn unauthorized_request(request: &str) -> ServerError {
+        ServerError::UnauthorizedRequest {
+            request: request.to_string()
         }
     }
 }

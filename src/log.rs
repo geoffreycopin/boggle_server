@@ -9,7 +9,8 @@ use std::{
 pub enum LogMsg {
     Login(String),
     Logout(String),
-    Error(ServerError)
+    Error(ServerError),
+    Accepted(String, String),
 }
 
 impl LogMsg {
@@ -31,6 +32,7 @@ impl fmt::Display for LogMsg {
         match self {
             &LogMsg::Login(ref name) => write!(f, "{} vient de se connecter.", name),
             &LogMsg::Logout(ref name) => write!(f, "{} vient de se déconnecter.", name),
+            &LogMsg::Accepted(ref name, ref word) => write!(f, "Le mot {} soumis par {} a été accepté", word, name),
             &LogMsg::Error(ref e) => write!(f, "Erreur: {}", e)
         }
     }

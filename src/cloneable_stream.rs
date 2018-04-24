@@ -1,25 +1,23 @@
 use std::{
     io::{self, Read, Write},
-    net::TcpStream
+    net::{TcpStream, Shutdown}
 };
 
-pub struct CloneableStream {
+pub struct CloneableWriter {
     stream: TcpStream
 }
 
-impl CloneableStream {
-    pub fn new(stream: TcpStream) -> CloneableStream {
-        CloneableStream { stream }
+impl CloneableWriter {
+    pub fn new(stream: TcpStream) -> CloneableWriter {
+        CloneableWriter { stream }
+    }
+
+    pub fn shutdown(self) {
+        self.stream.shutdown(Shutdown::Both);
     }
 }
 
-impl Read for CloneableStream {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
-        self.stream.read(buf)
-    }
-}
-
-impl Write for CloneableStream {
+impl Write for CloneableWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
         self.stream.write(buf)
     }
@@ -28,9 +26,9 @@ impl Write for CloneableStream {
     }
 }
 
-impl Clone for CloneableStream {
+impl Clone for CloneableWriter {
     fn clone(&self) -> Self {
-        CloneableStream::new(self.stream.try_clone().unwrap())
+        CloneableWriter::new(self.stream.try_clone().unwrap())
     }
 }
 

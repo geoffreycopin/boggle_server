@@ -2,7 +2,10 @@ use super::{
     log::*,
     board::*,
     players::*,
+    game::Game,
     errors::ServerError,
+    dict::{Dict, LocalDict},
+    cloneable_stream::CloneableWriter,
 };
 
 use std::{
@@ -18,28 +21,28 @@ pub type LogChan = Sender<LogMsg>;
 pub enum Request {
     Login(String),
     Logout(String),
+    Found(String, String)
 }
 
 pub struct Server {
-    game: RwLock<Board>,
-    players: RwLock<Players<TcpStream>>,
-    logger: LogChan,
+    game: Game<CloneableWriter>,
+    logger: Sender<LogMsg>,
 }
 
 impl Server {
-    pub fn new(logger: LogChan, game: Board, players: Players<TcpStream>) -> Self {
-        Server {
-            game: RwLock::new(game),
-            players: RwLock::new(players),
-            logger
-        }
+    pub fn new<U: Dict  +'static>(dict: U, logger: Sender<LogMsg>) -> Server {
+        let players = Players::new();
+        let board = Board::new();
+        let game = Game::new(players, board, dict);
+        Server { game, logger }
     }
 
-    fn handle_client_request(&self, request: &str, stream: TcpStream) {
+    fn handle_client_request(&self, request: &str, username: &str, stream: CloneableWriter) {
         let result = parse_request(request).and_then(|r| {
             match r {
                 Request::Login(name) => self.login(&name, stream),
                 Request::Logout(name) => self.logout(&name, stream),
+                Request::Found(word, trajectory) => self.found(&username, &word, &trajectory),
             }
         });
         result.map_err(|e| {
@@ -47,39 +50,27 @@ impl Server {
         });
     }
 
-    fn login(&self, username: &str, mut writer: TcpStream) -> Result<(), ServerError> {
-        let mut guard = self.players.write().unwrap();
-        let res =  guard.login(username, writer.try_clone().unwrap());
-        if let Err(ref e) = res {
-            writer.shutdown(Shutdown::Both).unwrap();
-        } else {
-            self.welcome(&mut writer, &guard.users());
-            self.log(LogMsg::login(username))
-        }
-        res
+    fn login(&self, username: &str, mut writer: CloneableWriter) -> Result<(), ServerError> {
+        self.game.login(username, writer.clone())
+            .map(|_| self.log(LogMsg::login(username)))
+            .map_err(|e| { writer.shutdown(); e })
     }
 
-    fn welcome(&self, user_stream: &mut TcpStream, users: &[String]) {
-        let game = self.game.read().unwrap();
-        let welcome_str = game.welcome_str(&users);
-        user_stream.write(welcome_str.as_bytes()).unwrap();
+    fn logout(&self, username: &str, reader: CloneableWriter) -> Result<(), ServerError> {
+        self.game.logout(username).map(|_| {
+            reader.shutdown();
+            self.log(LogMsg::Logout(username.to_string()))
+        })
     }
 
-    fn logout(&self, username: &str, writer: TcpStream) -> Result<(), ServerError> {
-        writer.shutdown(Shutdown::Both);
-        let mut guard = self.players.write().unwrap();
-        guard.logout(username)
-            .map(|_| self.log(LogMsg::logout(username)))
+    fn found(&self, username: &str, word: &str, trajectory: &str) -> Result<(), ServerError> {
+        self.game.found(username, word, trajectory).map(|_|
+            self.log(LogMsg::Accepted(username.to_string(), word.to_string()))
+        )
     }
 
-    fn log(&self, msg: LogMsg) {
+    pub fn log(&self, msg: LogMsg) {
         self.logger.send(msg).unwrap()
-    }
-
-    fn scores_to_string(scores: Vec<(String, u32)>) -> String {
-        scores.into_iter()
-            .map(|(user, score)| format!("{}*{}", user, score))
-            .fold(String::new(), |acc, val| acc + &val)
     }
 }
 
@@ -91,13 +82,37 @@ pub fn run(server: Server, streams: Receiver<TcpStream>) {
     for sock in streams {
         let s = server.clone();
         thread::spawn(move || {
-            let reader = BufReader::new(sock.try_clone().unwrap());
-            for request in reader.lines() {
-                if let Ok(r) = request {
-                    s.handle_client_request(&r, sock.try_clone().unwrap());
-                }
-            }
+            start_connection(s, sock);
         });
+    }
+}
+
+fn start_connection(server: Arc<Server>, stream: TcpStream) {
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let writer = CloneableWriter::new(stream);
+    let mut username = String::new();
+
+    match connect(server.clone(), writer.clone(), &mut reader) {
+        Ok(name) => username = name,
+        Err(e) => { server.log(LogMsg::Error(e)); return; }
+    }
+
+    for req in reader.lines() {
+        server.handle_client_request(&req.unwrap(), &username, writer.clone())
+    }
+}
+
+fn connect(server: Arc<Server>, stream: CloneableWriter, reader: &mut BufReader<TcpStream>)
+           -> Result<String, ServerError>
+{
+    let mut req = String::new();
+    reader.read_line(&mut req).unwrap();
+    match parse_request(&req) {
+        Ok(Request::Login(username)) => {
+            server.login(&username, stream)?;
+            Ok(username)
+        },
+        _ => Err(ServerError::unauthorized_request(&req))
     }
 }
 
@@ -108,6 +123,7 @@ fn parse_request(req: &str) -> Result<Request, ServerError> {
     let request = match components.get(0).ok_or(err.clone())? {
         &"CONNEXION" => parse_connexion(&components),
         &"SORT" => parse_sort(&components),
+        &"TROUVE" => parse_trouve(&components),
         _ => Err(())
     };
 
@@ -122,4 +138,10 @@ fn parse_connexion(components: &[&str]) -> Result<Request, ()> {
 fn parse_sort(components: &[&str]) -> Result<Request, ()> {
     let username = components.get(1).ok_or(())?;
     Ok(Request::Logout(username.to_string()))
+}
+
+fn parse_trouve(components: &[&str]) -> Result<Request, ()> {
+    let word = components.get(1).ok_or(())?;
+    let trajectory = components.get(2).ok_or(())?;
+    Ok(Request::Found(word.to_string(), trajectory.to_string()))
 }
