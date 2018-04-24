@@ -62,7 +62,9 @@ impl<T: Write + Clone> Game<T> {
         players.broadcast_message(&msg);
     }
 
-    pub fn found(&self, username: &str, word: &str, trajectory: &str) -> Result<(), ServerError> {
+    pub fn found(&self, username: &str, stream: &mut T, word: &str, trajectory: &str)
+        -> Result<(), ServerError>
+    {
         let word = word.to_lowercase();
         self.check_already_played(&word)?;
         self.check_exists(&word)?;
@@ -147,6 +149,15 @@ mod test {
         match game.found("user1", "ILE", "A2A1B2") {
             Err(ServerError::AlreadyPlayed {..}) => (),
             _ => panic!("{} has already been played !", "ILE")
+        }
+    }
+
+    #[test]
+    fn found_non_existing() {
+        let mut game = create_test_game();
+        match game.found("user1", "lid", "A1A2A3") {
+            Err(ServerError::NonExistingWord {..}) => (),
+            _ => panic!("\"{}\" doesn't exist !", "lid")
         }
     }
 
