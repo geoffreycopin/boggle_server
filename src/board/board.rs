@@ -33,6 +33,13 @@ impl Board {
         result
     }
 
+    pub fn reset(&mut self) {
+        self.grid = Board::generate_grid();
+        self.player_words.clear();
+        self.played.clear();
+        self.turn = 1;
+    }
+
     pub fn welcome_str(&self, users: &[String]) -> String {
         let grid = String::from_iter(self.grid.iter());
         let scores = self.scores_str(users);
@@ -206,6 +213,19 @@ pub mod test {
         board.new_turn();
 
         assert_eq!(board.turn, old_turn + 1);
+        assert_ne!(board.grid, old_grid);
+    }
+
+    #[test]
+    fn reset() {
+        let mut board = create_test_board();
+        let mut old_grid = board.grid;
+
+        board.reset();
+
+        assert_eq!(board.turn, 1);
+        assert_eq!(board.player_words, HashMap::new());
+        assert_eq!(board.played, HashSet::new());
         assert_ne!(board.grid, old_grid);
     }
 

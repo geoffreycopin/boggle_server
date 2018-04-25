@@ -48,10 +48,13 @@ impl<T: Write + Clone> Game<T> {
     }
 
     pub fn end_session(&self) {
-        let board = self.board.read().unwrap();
+        let mut board = self.board.write().unwrap();
         let mut players = self.players.write().unwrap();
+
         let msg = board.scores_str(&players.users());
-        players.broadcast_message(&format!("VAINQUEUR/{}/", msg));
+        players.broadcast_message(&format!("VAINQUEUR/{}/\n", msg));
+
+        board.reset();
     }
 
     pub fn new_turn(&self) {
@@ -60,6 +63,11 @@ impl<T: Write + Clone> Game<T> {
         let msg = format!("TOUR/{}/\n", board.grid_str());
         let mut players = self.players.write().unwrap();
         players.broadcast_message(&msg);
+    }
+
+    pub fn end_turn(&self) {
+        let mut players = self.players.write().unwrap();
+        players.broadcast_message("RFIN/\n")
     }
 
     pub fn found(&self, username: &str, word: &str, trajectory: &str)
@@ -88,6 +96,11 @@ impl<T: Write + Clone> Game<T> {
         } else {
             Err(ServerError::non_existing_word(word))
         }
+    }
+
+    pub fn is_connected(&self, username: &str) -> bool {
+        let players = self.players.read().unwrap();
+        players.is_connected(username)
     }
 }
 

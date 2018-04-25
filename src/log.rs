@@ -10,7 +10,7 @@ pub enum LogMsg {
     Login(String),
     Logout(String),
     Error(ServerError),
-    Accepted(String, String),
+    Accepted(String, String)
 }
 
 impl LogMsg {

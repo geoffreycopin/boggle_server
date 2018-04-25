@@ -26,6 +26,10 @@ impl<T: Write> Players<T> {
         }
     }
 
+    pub fn is_connected(&self, username: &str) -> bool {
+        self.players.contains_key(username)
+    }
+
     pub fn users(&self) -> Vec<String> {
         self.players.keys()
             .map(|key| key.to_string())
