@@ -17,7 +17,7 @@ impl Board {
             grid: Board::generate_grid(),
             player_words: HashMap::new(),
             played: HashSet::new(),
-            turn: 1,
+            turn: 0,
         }
     }
 
@@ -53,7 +53,8 @@ impl Board {
     pub fn scores_str(&self, users: &[String]) -> String  {
         users.iter()
             .map(|u| format!("{}*{}", u, self.user_score(u)))
-            .fold(String::new(), |acc, usr_score| acc + &usr_score)
+            .collect::<Vec<String>>()
+            .join("*")
     }
 
     pub fn is_already_played(&self, word: &str) -> bool {

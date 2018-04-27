@@ -136,7 +136,9 @@ fn start_connection(server: Arc<Server>, stream: TcpStream) {
     }
 
     for req in reader.lines() {
-        server.handle_client_request(&req.unwrap(), &username, writer.clone())
+        req.map(|r| {
+            server.handle_client_request(&r, &username, writer.clone())
+        });
     }
 
     server.remove_user_if_connected(&username);
