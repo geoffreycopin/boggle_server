@@ -57,6 +57,18 @@ impl Board {
             .join("*")
     }
 
+    pub fn words_str(&self, users: &[String]) -> String {
+        users.iter()
+            .map(|u| {
+                match self.player_words.get(u) {
+                    Some(words) => format!("{}*{}", u, words.join("*")),
+                    None => u.to_string()
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("*")
+    }
+
     pub fn is_already_played(&self, word: &str) -> bool {
         self.played.contains(word)
     }
@@ -93,6 +105,10 @@ impl Board {
     pub fn new_turn(&mut self) {
         self.grid = Board::generate_grid();
         self.turn += 1;
+    }
+
+    pub fn turn_scores(&self, users: &[String]) -> String {
+        format!("BILANMOTS/{}/{}/\n", self.words_str(users), self.scores_str(&users))
     }
 
     pub fn update_users(&mut self, users: HashSet<&str>) {
@@ -236,6 +252,7 @@ pub mod test {
                      'R', 'E', 'J', 'U',
                      'L', 'T', 'N', 'E',
                      'A', 'T', 'N', 'G' ];
+        board.turn = 1;
         board
     }
 }

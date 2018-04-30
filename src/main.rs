@@ -15,7 +15,7 @@ mod dict;
 use server::*;
 
 use std::{
-    sync::mpsc::channel,
+    sync::{mpsc::channel, Arc},
     net::TcpListener,
     thread,
 };
@@ -28,8 +28,8 @@ fn serve() {
     let (log_send, log_receive) = channel();
     let (server_send, server_receive) = channel();
 
-    let server = Server::new(dict::LocalDict::new(), log_send.clone());
-    thread::spawn(|| server::run(server, server_receive));
+    let server = server::Server::new(dict::LocalDict::new(), log_send.clone());
+    thread::spawn(|| server::run(Arc::new(server), server_receive));
 
     thread::spawn(|| log::log(log_receive));
 
