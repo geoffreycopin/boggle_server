@@ -112,6 +112,16 @@ impl<T: Write + Clone> Game<T> {
         let players = self.players.read().unwrap();
         players.is_connected(username)
     }
+
+    pub fn chat(&self, send: &str, recv: &str, msg: &str) -> Result<(), ServerError> {
+        self.players.write().unwrap().chat(send, recv, msg)
+    }
+
+    pub fn chat_all(&self, msg: &str) -> Result<(), ServerError> {
+        let message = format!("RECEPTION/{}/\n", msg);
+        self.players.write().unwrap().broadcast_message(&message);
+        Ok(())
+    }
 }
 
 
@@ -182,6 +192,18 @@ pub mod test {
             Err(ServerError::NonExistingWord {..}) => (),
             _ => panic!("\"{}\" doesn't exist !", "lid")
         }
+    }
+
+    #[test]
+    fn chat_all() {
+        let mut game: Game<StreamMock> = create_test_game();
+        let (players, mut streams) = create_test_players();
+        game.players = RwLock::new(players);
+        game.chat_all("test");
+        streams.iter().for_each(|s| {
+            let last_line = s.to_string().lines().last().unwrap().to_owned();
+            assert_eq!(last_line, "RECEPTION/test/")
+        })
     }
 
     pub fn create_test_game<T: Write + Clone>() -> Game<T> {

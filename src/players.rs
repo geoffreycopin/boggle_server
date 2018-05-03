@@ -48,6 +48,20 @@ impl<T: Write> Players<T> {
         }
     }
 
+    pub fn chat(&mut self, send: &str, recv: &str, msg: &str) -> Result<(), ServerError> {
+        if ! self.players.contains_key(send) {
+            return Err(ServerError::invalid_chat(send, recv, msg,
+                                                 ServerError::non_existing_user(send)))
+        }
+        if ! self.players.contains_key(recv) {
+            return Err(ServerError::invalid_chat(send, recv, msg,
+                                                 ServerError::non_existing_user(send)))
+        }
+        let stream = self.players.get_mut(recv).unwrap();
+        stream.write(format!("PRECEPTION/{}/{}/\n", msg, send).as_bytes());
+        Ok(())
+    }
+
     pub fn logout(&mut self, username: &str) -> Result<(), ServerError> {
         if self.players.contains_key(username) {
             self.remove_user(username);
@@ -130,6 +144,33 @@ pub mod test {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "DECONNEXION/user2/")
         })
+    }
+
+    #[test]
+    fn chat_ok() {
+        let (mut players, _) = create_test_players();
+        players.chat("user1", "user2", "Tu vas perdre !");
+        let user2_stream = players.players.get("user2").unwrap();
+        let last_line = user2_stream.to_string().lines().last().unwrap().to_owned();
+        assert_eq!(last_line, "PRECEPTION/Tu vas perdre !/user1/")
+    }
+
+    #[test]
+    fn chat_nonexisting_sender() {
+        let (mut players, _) = create_test_players();
+        match players.chat("user5", "user2", "Tu vas perdre !") {
+            Err(ServerError::InvalidChat {..}) => (),
+            _ => panic!("This call should return an error !")
+        }
+    }
+
+    #[test]
+    fn chat_nonexisting_receiver() {
+        let (mut players, _) = create_test_players();
+        match players.chat("user2", "user5", "Tu vas perdre !") {
+            Err(ServerError::InvalidChat {..}) => (),
+            _ => panic!("This call should return an error !")
+        }
     }
 
     #[test]
