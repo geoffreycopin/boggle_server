@@ -3,14 +3,11 @@ pub mod board;
 pub use self::board::Board;
 
 use super::{
-    dict::{Dict, LocalDict},
-    errors::{ServerError, ServerError::*},
+    errors::{ServerError},
 };
 
 use std::{
-    collections::{HashMap, HashSet},
-    iter::FromIterator,
-    i8::*,
+    collections::{HashMap, HashSet}
 };
 
 const DICES: [[char; 6]; 16] = [
@@ -96,14 +93,6 @@ fn word_score(word: &str) -> u32 {
     }
 }
 
-fn index_of_coordinates(line: char, column: usize) -> Result<usize, ServerError> {
-    if line < 'A' || line > 'D' || column < 1 || column > 4 {
-        Err(InvalidCoordinates { line, column })
-    } else {
-        Ok((column - 1) + (4 * index_of_letter(line)))
-    }
-}
-
 fn index_of_letter(letter: char) -> usize {
     match letter {
         'A' => 0,
@@ -117,31 +106,6 @@ fn index_of_letter(letter: char) -> usize {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn index_of_coordinates_ok() {
-        assert_eq!(index_of_coordinates('C', 2).unwrap(), 9);
-        assert_eq!(index_of_coordinates('A', 1).unwrap(), 0);
-        assert_eq!(index_of_coordinates('D', 4).unwrap(), 15);
-    }
-
-    #[test]
-    fn invalid_coordinates_returns_error() {
-        match index_of_coordinates('E', 1) {
-            Err(InvalidCoordinates {..}) => (),
-            _ => panic!("This call sould return an error !")
-        }
-
-        match index_of_coordinates('E', 0) {
-            Err(InvalidCoordinates {..}) => (),
-            _ => panic!("This call sould return an error !")
-        }
-
-        match index_of_coordinates('E', 5) {
-            Err(InvalidCoordinates {..}) => (),
-            _ => panic!("This call sould return an error !")
-        }
-    }
 
     #[test]
     fn line_of_char_ok() {

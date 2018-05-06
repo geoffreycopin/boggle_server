@@ -8,16 +8,16 @@ use super::{
     players::*,
     game::Game,
     errors::ServerError,
-    dict::{Dict, LocalDict},
+    dict::Dict,
     cloneable_stream::CloneableWriter,
 };
 
 use std::{
-    io::{BufReader, BufRead, Write},
-    sync::{RwLock, Mutex,mpsc::{Sender, Receiver, channel}, Arc},
+    io::{BufReader, BufRead},
+    sync::{Mutex,mpsc::{Sender, Receiver}, Arc},
     thread::{self, JoinHandle},
     marker::Sync,
-    net::{TcpStream, TcpListener, Shutdown},
+    net::TcpStream,
     mem::replace,
     time::Duration,
 };
@@ -34,17 +34,17 @@ pub fn run(server: Arc<Server>, streams: Receiver<TcpStream>) {
 fn start_connection(server: Arc<Server>, stream: TcpStream) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let writer = CloneableWriter::new(stream);
-    let mut username = String::new();
+    let username;
 
     match connect(server.clone(), writer.clone(), &mut reader) {
         Ok(name) => username = name,
         Err(e) => { server.log(LogMsg::Error(e)); return; }
     }
-    println!("Reading next requests !");
+
     for req in reader.lines() {
-        req.map(|r| {
+        if let Ok(r) = req {
             server.handle_client_request(&r, &username, writer.clone())
-        });
+        }
     }
     server.remove_user_if_connected(&username);
 }

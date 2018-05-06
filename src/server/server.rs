@@ -53,12 +53,12 @@ impl Server {
                 Request::ChatAll(message) => self.chat_all(username, &message),
             }
         });
-        result.map_err(|e| {
+        if let Err(e) = result {
             self.log(LogMsg::err(e))
-        });
+        }
     }
 
-    pub fn login(&self, username: &str, mut writer: CloneableWriter) -> Result<(), ServerError> {
+    pub fn login(&self, username: &str, writer: CloneableWriter) -> Result<(), ServerError> {
         self.game.login(username, writer.clone())
             .map(|_|  self.log(LogMsg::login(username)))
             .map_err(|e| { writer.shutdown(); e })
@@ -67,7 +67,7 @@ impl Server {
     pub fn logout(&self, username: &str, writer: CloneableWriter) -> Result<(), ServerError> {
         self.game.logout(username).map(|_| {
             writer.shutdown();
-            self.log(LogMsg::Logout(username.to_string()))
+            self.log(LogMsg::logout(username))
         })
     }
 
@@ -76,11 +76,13 @@ impl Server {
     {
         self.game.found(username, word, trajectory)
             .map(|_| {
-                writer.write(format!("MVALIDE/{}/\n", word).as_bytes());
+                writer.write(format!("MVALIDE/{}/\n", word).as_bytes())
+                    .expect("Cannot write response");
                 self.log(LogMsg::Accepted(username.to_string(), word.to_string()))
             })
             .map_err(|e| {
-                writer.write(format!("MINVALIDE/{}/\n", e).as_bytes());
+                writer.write(format!("MINVALIDE/{}/\n", e).as_bytes())
+                    .expect("Cannot write response");
                 e
             })
     }
@@ -100,8 +102,9 @@ impl Server {
 
     pub fn remove_user_if_connected(&self, username: &str) {
         if self.game.is_connected(username) {
-            self.game.logout(username)
-                .map(|_| self.log(LogMsg::Logout(username.to_string())));
+            if let Err(e) = self.game.logout(username) {
+                eprintln!("Error while logging out: {}", e)
+            }
         }
     }
 

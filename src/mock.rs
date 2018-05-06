@@ -1,6 +1,8 @@
+#![cfg(test)]
+
 use std::{
     cell::RefCell,
-    io::{Read, Write, Error},
+    io::{Write, Error},
     rc::Rc,
 };
 

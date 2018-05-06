@@ -12,8 +12,6 @@ mod errors;
 mod server;
 mod dict;
 
-use server::*;
-
 use std::{
     sync::{mpsc::channel, Arc},
     net::TcpListener,

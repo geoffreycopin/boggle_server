@@ -1,7 +1,4 @@
-use super::{
-    server::*,
-    errors::{ServerError, ServerError::*},
-};
+use super::errors::ServerError;
 
 use std::{
     io::Write,
@@ -44,7 +41,9 @@ impl<T: Write> Players<T> {
 
     pub fn broadcast_message(&mut self, message: &str) {
         for s in self.players.values_mut() {
-            s.write(message.as_bytes());
+            if let Err(e) = s.write(message.as_bytes()) {
+                eprintln!("Error while broadcastin message: {}", e)
+            }
         }
     }
 
@@ -58,7 +57,7 @@ impl<T: Write> Players<T> {
                                                  ServerError::non_existing_user(recv)))
         }
         let stream = self.players.get_mut(recv).unwrap();
-        stream.write(format!("PRECEPTION/{}/{}/\n", msg, send).as_bytes());
+        stream.write(format!("PRECEPTION/{}/{}/\n", msg, send).as_bytes()).unwrap();
         Ok(())
     }
 
@@ -80,13 +79,14 @@ impl<T: Write> Players<T> {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use super::super::errors::ServerError::*;
     use super::super::mock::StreamMock;
     use std::collections::HashSet;
 
     #[test]
     fn login_ok() {
         let mut players = create_empty_players();
-        players.login("newPlayer", StreamMock::new());
+        players.login("newPlayer", StreamMock::new()).unwrap();
         let users = players.players;
         assert_eq!(users.keys().collect::<Vec<&String>>(), vec!["newPlayer"]);
     }
@@ -94,7 +94,7 @@ pub mod test {
     #[test]
     fn login_existing_user_returns_error() {
         let mut players = create_empty_players();
-        players.login("newPlayer", StreamMock::new());
+        players.login("newPlayer", StreamMock::new()).unwrap();
         match players.login("newPlayer", StreamMock::new()) {
             Err(ExistingUser {..}) => (),
             _ => panic!("This call should return ServerError::ExistingUser")
@@ -104,7 +104,7 @@ pub mod test {
     #[test]
     fn login_broadcast_to_others() {
         let (mut players, streams) = create_test_players();
-        players.login("newUser", StreamMock::new());
+        players.login("newUser", StreamMock::new()).unwrap();
         streams.iter().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "CONNECTE/newUser/")
@@ -113,8 +113,8 @@ pub mod test {
 
     #[test]
     fn logout_ok() {
-        let (mut players, streams) = create_test_players();
-        players.logout("user2");
+        let (mut players, _) = create_test_players();
+        players.logout("user2").unwrap();
         let users = players.players;
 
         let actual = users.keys().map(|s| s.clone()).collect::<HashSet<String>>();
@@ -138,7 +138,7 @@ pub mod test {
     #[test]
     fn logout_broadcast_to_others() {
         let (mut players, _) = create_test_players();
-        players.logout("user2");
+        players.logout("user2").unwrap();
         let users = players.players;
         users.values().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
@@ -149,7 +149,7 @@ pub mod test {
     #[test]
     fn chat_ok() {
         let (mut players, _) = create_test_players();
-        players.chat("user1", "user2", "Tu vas perdre !");
+        players.chat("user1", "user2", "Tu vas perdre !").unwrap();
         let user2_stream = players.players.get("user2").unwrap();
         let last_line = user2_stream.to_string().lines().last().unwrap().to_owned();
         assert_eq!(last_line, "PRECEPTION/Tu vas perdre !/user1/")
@@ -196,7 +196,7 @@ pub mod test {
         let mut streams = Vec::new();
         for u in usernames {
             let s = StreamMock::new();
-            players.login(u, s.clone());
+            players.login(u, s.clone()).unwrap();
             streams.push(s);
         }
         streams

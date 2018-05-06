@@ -8,9 +8,6 @@ pub enum ServerError {
     #[fail(display = "L'utilisateur {} n'existe pas.", username)]
     NonExistingUser { username: String },
 
-    #[fail(display = "Les coordonnées ({}, {}) sont invalides.", line, column)]
-    InvalidCoordinates { line: char, column: usize },
-
     #[fail(display = "Requête invalide: {}.", request)]
     BadRequest { request: String },
 
@@ -44,10 +41,6 @@ impl ServerError {
         ServerError::NonExistingUser {
             username: username.to_string()
         }
-    }
-
-    pub fn invalid_coordinates(line: char, column: usize) -> ServerError {
-        ServerError::InvalidCoordinates { line, column }
     }
 
     pub fn bad_request(request: &str) -> ServerError {

@@ -2,12 +2,13 @@ use super::*;
 
 use rand::{self, Rng};
 
-use std::io::Write;
+use std::iter::FromIterator;
 
 pub struct Board {
     grid: [char; 16],
     player_words: HashMap<String, Vec<String>>,
     played: HashSet<String>,
+    immediate_check: bool,
     turn: u64
 }
 
@@ -17,6 +18,7 @@ impl Board {
             grid: Board::generate_grid(),
             player_words: HashMap::new(),
             played: HashSet::new(),
+            immediate_check: false
             turn: 0,
         }
     }
@@ -111,36 +113,12 @@ impl Board {
         format!("BILANMOTS/{}/{}/\n", self.words_str(users), self.scores_str(&users))
     }
 
-    pub fn update_users(&mut self, users: HashSet<&str>) {
-        self.player_words.retain(|key, _| users.contains(&key.as_str()));
-        self.played = self.compute_played()
-    }
-
-    fn compute_played(&self) -> HashSet<String> {
-        HashSet::from_iter(
-            self.player_words.values()
-                .flat_map(|v| v)
-                .map(|v| v.to_string())
-        )
-    }
-
-    pub fn users_scores(&self, users: &[String]) -> Vec<(String, u32)> {
-        users.iter()
-            .map(|u| (u.to_owned(), self.user_score(u)))
-            .collect()
-    }
-
     fn user_score(&self, user: &str) -> u32 {
         self.player_words.get(user).map_or(0, |words| {
             words.iter()
                 .map(|w| word_score(w))
                 .sum()
         })
-    }
-
-    fn letter_at(&self, line: char, column: usize) -> Result<char, ServerError> {
-        let idx = index_of_coordinates(line, column)?;
-        Ok(self.grid[idx])
     }
 }
 
@@ -156,24 +134,6 @@ pub mod test {
     }
 
     #[test]
-    fn update_users() {
-        let mut board = Board::new();
-        board.player_words.insert("user1".to_string(), vec!["word1".to_string()]);
-        board.player_words.insert("user2".to_string(), vec!["word2".to_string()]);
-        board.player_words.insert("user3".to_string(), vec!["word3".to_string()]);
-
-        let users = vec!["user1", "user3"];
-        board.update_users(HashSet::from_iter(users));
-
-        let expected: HashSet<&str> = HashSet::from_iter(vec!["user1", "user3"]);
-        let actual: HashSet<&str> = board.player_words.keys()
-            .map(|p| p.as_str())
-            .collect();
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
     fn word_of_trajectory() {
         let board = create_test_board();
         let trajectory = vec![('C', 2), ('B', 1), ('A', 2), ('A', 3), ('B', 2), ('C', 3), ('D', 2)];
@@ -183,7 +143,7 @@ pub mod test {
     #[test]
     fn submit_word() {
         let mut board = create_test_board();
-        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2");
+        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2").unwrap();
         let expected = vec!["trident".to_string()];
         assert_eq!(board.player_words.get("user1").unwrap(), &expected);
     }
@@ -191,7 +151,7 @@ pub mod test {
     #[test]
     fn submit_word_adds_word_to_played() {
         let mut board = create_test_board();
-        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2");
+        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2").unwrap();
         assert!(board.played.contains("trident"));
     }
 
@@ -205,18 +165,9 @@ pub mod test {
     }
 
     #[test]
-    fn update_users_updates_played() {
-        let mut board = create_test_board();
-        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2");
-        board.submit_word("user2", "ile", "A2A1B2");
-        board.update_users(HashSet::from_iter(vec!["user2"]));
-        assert_eq!(board.played, HashSet::from_iter(vec!["ile".to_string()]));
-    }
-
-    #[test]
     fn welcome_str() {
         let mut board = create_test_board();
-        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2");
+        board.submit_word("user1", "trident", "C2B1A2A3B2C3D2").unwrap();
         assert_eq!(board.welcome_str(&vec!["user1".to_string()]),
                    "BIENVENUE/LIDAREJULTNEATNG/1*user1*5/\n")
     }
@@ -224,7 +175,7 @@ pub mod test {
     #[test]
     fn new_turn() {
         let mut board = create_test_board();
-        let mut old_grid = board.grid;
+        let old_grid = board.grid;
         let old_turn = board.turn;
 
         board.new_turn();
@@ -236,7 +187,7 @@ pub mod test {
     #[test]
     fn reset() {
         let mut board = create_test_board();
-        let mut old_grid = board.grid;
+        let old_grid = board.grid;
 
         board.reset();
 

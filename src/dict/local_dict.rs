@@ -1,9 +1,9 @@
-use super::{Dict, ServerError};
+use super::Dict;
 
 use std::{
     collections::HashSet,
     fs::File,
-    io::{self, BufReader, prelude::*},
+    io::{BufReader, prelude::*},
 };
 
 use unidecode::unidecode;
@@ -45,6 +45,6 @@ mod test {
     #[test]
     #[should_panic]
     fn new_panics_on_invalid_dict_file() {
-        let dict = LocalDict::from_dictionary("non_existing_dict.txt");
+        LocalDict::from_dictionary("non_existing_dict.txt");
     }
 }

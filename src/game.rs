@@ -68,7 +68,7 @@ impl<T: Write + Clone> Game<T> {
     }
 
     pub fn new_turn(&self) {
-        let mut grid = String::new();
+        let grid;
         {
             let mut board = self.board.write().unwrap();
             board.new_turn();
@@ -149,9 +149,9 @@ pub mod test {
 
     #[test]
     fn login_welcomes_user() {
-        let mut game: Game<StreamMock> = create_test_game();
+        let game: Game<StreamMock> = create_test_game();
         let user1_stream = StreamMock::new();
-        game.login("user1", user1_stream.clone());
+        game.login("user1", user1_stream.clone()).unwrap();
         assert_eq!(user1_stream.to_string(),
                    "BIENVENUE/LIDAREJULTNEATNG/1*user1*0/\n")
     }
@@ -171,7 +171,7 @@ pub mod test {
     #[test]
     fn end_session_is_broadcasted() {
         let mut game: Game<StreamMock> = create_test_game();
-        let (players, mut streams) = create_test_players();
+        let (players, streams) = create_test_players();
         game.players = RwLock::new(players);
         game.end_session();
         streams.iter().for_each(|s| {
@@ -182,15 +182,15 @@ pub mod test {
 
     #[test]
     fn found() {
-        let mut game: Game<StreamMock> = create_test_game();
+        let game: Game<StreamMock> = create_test_game();
         let result = game.found("user1", "ILE", "A2A1B2");
         assert!(result.is_ok())
     }
 
     #[test]
     fn found_already_played() {
-        let mut game: Game<StreamMock> = create_test_game();
-        game.found("user1", "ILE", "A2A1B2");
+        let game: Game<StreamMock> = create_test_game();
+        game.found("user1", "ILE", "A2A1B2").unwrap();
         match game.found("user1", "ILE", "A2A1B2") {
             Err(ServerError::AlreadyPlayed {..}) => (),
             _ => panic!("{} has already been played !", "ILE")
@@ -199,7 +199,7 @@ pub mod test {
 
     #[test]
     fn found_non_existing() {
-        let mut game: Game<StreamMock> = create_test_game();
+        let game: Game<StreamMock> = create_test_game();
         match game.found("user1", "lid", "A1A2A3") {
             Err(ServerError::NonExistingWord {..}) => (),
             _ => panic!("\"{}\" doesn't exist !", "lid")
@@ -209,9 +209,9 @@ pub mod test {
     #[test]
     fn chat_all() {
         let mut game: Game<StreamMock> = create_test_game();
-        let (players, mut streams) = create_test_players();
+        let (players, streams) = create_test_players();
         game.players = RwLock::new(players);
-        game.chat_all("test");
+        game.chat_all("test").unwrap();
         streams.iter().for_each(|s| {
             let last_line = s.to_string().lines().last().unwrap().to_owned();
             assert_eq!(last_line, "RECEPTION/test/")

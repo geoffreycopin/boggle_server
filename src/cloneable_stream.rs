@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Read, Write},
+    io::{self, Write},
     net::{TcpStream, Shutdown}
 };
 
@@ -13,7 +13,7 @@ impl CloneableWriter {
     }
 
     pub fn shutdown(self) {
-        self.stream.shutdown(Shutdown::Both);
+        self.stream.shutdown(Shutdown::Both).unwrap();
     }
 }
 
