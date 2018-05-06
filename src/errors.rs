@@ -11,7 +11,7 @@ pub enum ServerError {
     #[fail(display = "Les coordonnées ({}, {}) sont invalides.", line, column)]
     InvalidCoordinates { line: char, column: usize },
 
-    #[fail(display = "Requête invalide: {}", request)]
+    #[fail(display = "Requête invalide: {}.", request)]
     BadRequest { request: String },
 
     #[fail(display = "Le mot {} n'existe pas.", word)]
@@ -29,7 +29,7 @@ pub enum ServerError {
     #[fail(display = "La requête <{}> ne peut être soumise par un utilisateur non connecté.", request)]
     UnauthorizedRequest { request: String },
 
-    #[fail(display = "Le message {} soumis par {} n'a pas pu être envoyé à {}: {}", message, sender, receiver, err)]
+    #[fail(display = "Le message <{}> soumis par {} n'a pas pu être envoyé à {}: {}", message, sender, receiver, err)]
     InvalidChat { sender: String, receiver: String, message: String, err: Box<ServerError> },
 }
 

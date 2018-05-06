@@ -75,6 +75,8 @@ fn parse_request(req: &str) -> Result<Request, ServerError> {
         &"CONNEXION" => parse_connexion(&components),
         &"SORT" => parse_sort(&components),
         &"TROUVE" => parse_trouve(&components),
+        &"ENVOI" => parse_envoi(&components),
+        &"PENVOI" => parse_penvoi(&components),
         _ => Err(())
     };
 
@@ -95,6 +97,17 @@ fn parse_trouve(components: &[&str]) -> Result<Request, ()> {
     let word = components.get(1).ok_or(())?;
     let trajectory = components.get(2).ok_or(())?;
     Ok(Request::Found(word.to_string(), trajectory.to_string()))
+}
+
+fn parse_envoi(components: &[&str]) -> Result<Request, ()> {
+    let message = components.get(1).ok_or(())?;
+    Ok(Request::ChatAll(message.to_string()))
+}
+
+fn parse_penvoi(components: &[&str]) -> Result<Request, ()> {
+    let user = components.get(1).ok_or(())?;
+    let message = components.get(2).ok_or(())?;
+    Ok(Request::Chat(user.to_string(), message.to_string()))
 }
 
 fn run_session(server: Arc<Server>) -> JoinHandle<()> {

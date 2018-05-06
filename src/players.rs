@@ -55,7 +55,7 @@ impl<T: Write> Players<T> {
         }
         if ! self.players.contains_key(recv) {
             return Err(ServerError::invalid_chat(send, recv, msg,
-                                                 ServerError::non_existing_user(send)))
+                                                 ServerError::non_existing_user(recv)))
         }
         let stream = self.players.get_mut(recv).unwrap();
         stream.write(format!("PRECEPTION/{}/{}/\n", msg, send).as_bytes());

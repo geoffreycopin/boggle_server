@@ -7,13 +7,15 @@ use super::{
 
 use std::{
     io::{Write},
-    sync::RwLock,
+    sync::{RwLock, Mutex, Condvar},
 };
 
 pub struct Game<T: Write + Clone> {
     players: RwLock<Players<T>>,
     board: RwLock<Board>,
     dict: RwLock<Box<Dict>>,
+    turn_running: Mutex<bool>,
+    turn_cond: Condvar,
 }
 
 impl<T: Write + Clone> Game<T> {
@@ -21,7 +23,9 @@ impl<T: Write + Clone> Game<T> {
         Game {
             players: RwLock::new(players),
             board: RwLock::new(board),
-            dict: RwLock::new(Box::new(dict))
+            dict: RwLock::new(Box::new(dict)),
+            turn_running: Mutex::new(false),
+            turn_cond: Condvar::new(),
         }
     }
 
@@ -34,10 +38,13 @@ impl<T: Write + Clone> Game<T> {
     }
 
     fn welcome(&self, stream: &mut T, users: &[String]) {
+        let mut running = self.turn_running.lock().unwrap();
+        while ! *running {
+            running = self.turn_cond.wait(running).unwrap();
+        }
         let board = self.board.read().unwrap();
         let welcome_str = board.welcome_str(&users);
         stream.write(welcome_str.as_bytes()).unwrap();
-        println!("Wrote response !")
     }
 
     pub fn logout(&self, username: &str) -> Result<(), ServerError> {
@@ -70,9 +77,14 @@ impl<T: Write + Clone> Game<T> {
         let msg = format!("TOUR/{}/\n", grid);
         let mut players = self.players.write().unwrap();
         players.broadcast_message(&msg);
+
+        let mut running = self.turn_running.lock().unwrap();
+        *running = true;
+        self.turn_cond.notify_all();
     }
 
     pub fn end_turn(&self) {
+        *self.turn_running.lock().unwrap() = false;
         let users = self.players.read().unwrap().users();
         let message = self.board.read().unwrap().turn_scores(&users);
         let mut players = self.players.write().unwrap();
@@ -210,6 +222,8 @@ pub mod test {
         let board = create_test_board();
         let players = Players::new();
         let dict = LocalDict::from_dictionary("dico_test.txt");
-        Game::new(players, board, dict)
+        let game = Game::new(players, board, dict);
+        *game.turn_running.lock().unwrap() = true;
+        game
     }
 }

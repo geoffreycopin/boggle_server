@@ -4,7 +4,9 @@ use std::io::prelude::*;
 pub enum Request {
     Login(String),
     Logout(String),
-    Found(String, String)
+    Found(String, String),
+    Chat(String, String),
+    ChatAll(String),
 }
 
 pub struct Server {
@@ -47,6 +49,8 @@ impl Server {
                 Request::Logout(name) => self.logout(&name, stream),
                 Request::Found(word, trajectory) =>
                     self.found(&username, &mut stream, &word, &trajectory),
+                Request::Chat(to, message) => self.chat(username, &to, &message),
+                Request::ChatAll(message) => self.chat_all(username, &message),
             }
         });
         result.map_err(|e| {
@@ -79,6 +83,19 @@ impl Server {
                 writer.write(format!("MINVALIDE/{}/\n", e).as_bytes());
                 e
             })
+    }
+
+    pub fn chat(&self, sender: &str, receiver: &str, msg: &str) -> Result<(), ServerError>
+    {
+        self.game.chat(sender, receiver, msg).map(|_| {
+            self.log(LogMsg::message_sent(sender, receiver, msg));
+        })
+    }
+
+    pub fn chat_all(&self, sender: &str, message: &str) -> Result<(), ServerError> {
+        self.game.chat_all(message).map(|_| {
+            self.log(LogMsg::global_message(sender, message));
+        })
     }
 
     pub fn remove_user_if_connected(&self, username: &str) {
