@@ -1,5 +1,8 @@
 use super::*;
-use std::io::prelude::*;
+use std::{
+    io::prelude::*,
+    sync::atomic::AtomicUsize,
+};
 
 pub enum Request {
     Login(String),
@@ -12,15 +15,23 @@ pub enum Request {
 pub struct Server {
     game: Game<CloneableWriter>,
     logger: Sender<LogMsg>,
-    pub running_session: Mutex<Option<JoinHandle<()>>>,
+    nb_players: Mutex<usize>,
 }
 
 impl Server {
     pub fn new<U: Dict  +'static>(dict: U, logger: Sender<LogMsg>) -> Server {
         let players = Players::new();
-        let board = Board::new();
+        let board = Board::new(true);
         let game = Game::new(players, board, dict);
-        Server { game, logger, running_session: Mutex::new(None) }
+        Server { game, logger, nb_players: Mutex::new(0) }
+    }
+
+    pub fn nb_players(&self) -> usize {
+        self.nb_players.lock().unwrap().clone()
+    }
+
+    pub fn set_nb_users(&self, nb: usize) {
+        *self.nb_players.lock().unwrap() = nb;
     }
 
     pub fn start_game_session(&self) {
@@ -60,12 +71,13 @@ impl Server {
 
     pub fn login(&self, username: &str, writer: CloneableWriter) -> Result<(), ServerError> {
         self.game.login(username, writer.clone())
-            .map(|_|  self.log(LogMsg::login(username)))
+            .map(|_|  { self.log(LogMsg::login(username)); *self.nb_players.lock().unwrap() += 1 })
             .map_err(|e| { writer.shutdown(); e })
     }
 
     pub fn logout(&self, username: &str, writer: CloneableWriter) -> Result<(), ServerError> {
         self.game.logout(username).map(|_| {
+            *self.nb_players.lock().unwrap() -= 1;
             writer.shutdown();
             self.log(LogMsg::logout(username))
         })

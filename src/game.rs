@@ -30,26 +30,27 @@ impl<T: Write + Clone> Game<T> {
     }
 
     pub fn login(&self, username: &str, mut stream: T) -> Result<(), ServerError> {
+        self.board.write().unwrap().add_user(username);
         let mut guard = self.players.write().unwrap();
         let res = guard.login(username, stream.clone());
-        let users = guard.users();
         drop(guard);
-        res.map(|_| self.welcome(&mut stream, &users))
+        res.map(|_| self.welcome(&mut stream))
     }
 
-    fn welcome(&self, stream: &mut T, users: &[String]) {
+    fn welcome(&self, stream: &mut T) {
         let mut running = self.turn_running.lock().unwrap();
         while ! *running {
             running = self.turn_cond.wait(running).unwrap();
         }
         let board = self.board.read().unwrap();
-        let welcome_str = board.welcome_str(&users);
+        let welcome_str = board.welcome_str();
         stream.write(welcome_str.as_bytes()).unwrap();
     }
 
     pub fn logout(&self, username: &str) -> Result<(), ServerError> {
-        let mut players = self.players.write().unwrap();
-        players.logout(username)
+        let res = self.players.write().unwrap().logout(username);
+        self.board.write().unwrap().remove_user(username);
+        res
     }
 
     pub fn start_session(&self) {
@@ -61,7 +62,7 @@ impl<T: Write + Clone> Game<T> {
         let mut board = self.board.write().unwrap();
         let mut players = self.players.write().unwrap();
 
-        let msg = board.scores_str(&players.users());
+        let msg = board.scores_str();
         players.broadcast_message(&format!("VAINQUEUR/{}/\n", msg));
 
         board.reset();
@@ -85,8 +86,7 @@ impl<T: Write + Clone> Game<T> {
 
     pub fn end_turn(&self) {
         *self.turn_running.lock().unwrap() = false;
-        let users = self.players.read().unwrap().users();
-        let message = self.board.read().unwrap().turn_scores(&users);
+        let message = self.board.write().unwrap().turn_scores();
         let mut players = self.players.write().unwrap();
         players.broadcast_message("RFIN/\n");
         players.broadcast_message(&message);
@@ -96,19 +96,9 @@ impl<T: Write + Clone> Game<T> {
         -> Result<(), ServerError>
     {
         let word = word.to_lowercase();
-        self.check_already_played(&word)?;
         self.check_exists(&word)?;
         let mut board = self.board.write().unwrap();
         board.submit_word(username, &word, trajectory)
-    }
-
-    pub fn check_already_played(&self, word: &str) -> Result<(), ServerError> {
-        let board = self.board.read().unwrap();
-        if board.is_already_played(word) {
-            Err(ServerError::already_played(word))
-        } else {
-            Ok(())
-        }
     }
 
     pub fn check_exists(&self, word: &str) -> Result<(), ServerError> {
@@ -183,6 +173,7 @@ pub mod test {
     #[test]
     fn found() {
         let game: Game<StreamMock> = create_test_game();
+        game.login("user1", StreamMock::new()).unwrap();
         let result = game.found("user1", "ILE", "A2A1B2");
         assert!(result.is_ok())
     }
@@ -190,6 +181,7 @@ pub mod test {
     #[test]
     fn found_already_played() {
         let game: Game<StreamMock> = create_test_game();
+        game.login("user1", StreamMock::new()).unwrap();
         game.found("user1", "ILE", "A2A1B2").unwrap();
         match game.found("user1", "ILE", "A2A1B2") {
             Err(ServerError::AlreadyPlayed {..}) => (),

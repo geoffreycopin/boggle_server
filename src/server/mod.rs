@@ -52,9 +52,8 @@ fn start_connection(server: Arc<Server>, stream: TcpStream) {
 fn connect(server: Arc<Server>, stream: CloneableWriter, reader: &mut BufReader<TcpStream>)
            -> Result<String, ServerError>
 {
-    let mut session = server.running_session.lock().unwrap();
-    if let None = *session {
-        replace(&mut *session, Some(run_session(server.clone())));
+    if server.nb_players() == 0 {
+        start_session(server.clone());
     }
     let mut req = String::new();
     reader.read_line(&mut req).unwrap();
@@ -110,7 +109,7 @@ fn parse_penvoi(components: &[&str]) -> Result<Request, ()> {
     Ok(Request::Chat(user.to_string(), message.to_string()))
 }
 
-fn run_session(server: Arc<Server>) -> JoinHandle<()> {
+fn start_session(server: Arc<Server>) -> JoinHandle<()> {
     thread::spawn(move || {
         loop {
             server.start_game_session();
@@ -119,6 +118,9 @@ fn run_session(server: Arc<Server>) -> JoinHandle<()> {
                 thread::sleep(Duration::from_secs(180));
                 server.end_game_turn();
                 thread::sleep(Duration::from_secs(10));
+                if server.nb_players() == 0 {
+                    return;
+                }
             }
             server.end_game_session();
         }

@@ -29,14 +29,22 @@ const DICES: [[char; 6]; 16] = [
     ['E', 'N', 'H', 'R', 'I', 'S'],
 ];
 
-fn trajectory_of_string(t: &str) -> Result<Vec<(char, usize)>, ()> {
-    if t.len() % 2 == 1 || t.len() < 6 { return Err(()) }
+fn trajectory_of_string(t: &str) -> Result<Vec<(char, usize)>, ServerError> {
+    if t.len() % 2 == 1 || t.len() < 6 {
+        return Err(ServerError::bad_trajectory(t))
+    }
+
     let chars: Vec<char> = t.chars().collect();
     let trajectory = chars.chunks(2)
         .map(|chunk| coordinates_of_chars(chunk[0], chunk[1]))
-        .collect::<Result<Vec<(char, usize)>, _>>()?;
+        .collect::<Result<Vec<(char, usize)>, _>>()
+        .map_err(|_| ServerError::bad_trajectory(t))?;
 
-    if is_valid_trajectory(&trajectory) { Ok(trajectory) } else { Err(()) }
+    if is_valid_trajectory(&trajectory) {
+        Ok(trajectory)
+    } else {
+        Err(ServerError::bad_trajectory(t))
+    }
 }
 
 fn coordinates_of_chars(line: char, column: char) -> Result<(char, usize), ()> {

@@ -27,12 +27,6 @@ impl<T: Write> Players<T> {
         self.players.contains_key(username)
     }
 
-    pub fn users(&self) -> Vec<String> {
-        self.players.keys()
-            .map(|key| key.to_string())
-            .collect()
-    }
-
     fn register_user(&mut self, pseudo: &str, stream: T) {
         let message = format!("CONNECTE/{}/\n", pseudo);
         self.broadcast_message(&message);
@@ -171,15 +165,6 @@ pub mod test {
             Err(ServerError::InvalidChat {..}) => (),
             _ => panic!("This call should return an error !")
         }
-    }
-
-    #[test]
-    fn users() {
-        let (players, _) = create_test_players();
-        assert_eq!(players.users().len(), 3);
-        assert!(players.users().contains(&"user1".to_string()));
-        assert!(players.users().contains(&"user2".to_string()));
-        assert!(players.users().contains(&"user3".to_string()));
     }
 
     pub fn create_test_players() -> (Players<StreamMock>, Vec<StreamMock>) {
