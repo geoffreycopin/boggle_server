@@ -59,13 +59,12 @@ impl<T: Write + Clone> Game<T> {
     }
 
     pub fn end_session(&self) {
-        let mut board = self.board.write().unwrap();
+        let msg = self.board.write().unwrap().scores_str();
         let mut players = self.players.write().unwrap();
-
-        let msg = board.scores_str();
         players.broadcast_message(&format!("VAINQUEUR/{}/\n", msg));
+        drop(players);
 
-        board.reset();
+        self.board.write().unwrap().reset();
     }
 
     pub fn new_turn(&self) {

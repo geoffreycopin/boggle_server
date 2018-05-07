@@ -1,4 +1,5 @@
 use super::*;
+use super::super::dict::LocalDict;
 use std::io::prelude::*;
 
 pub enum Request {
@@ -13,14 +14,56 @@ pub struct Server {
     game: Game<CloneableWriter>,
     logger: Sender<LogMsg>,
     nb_players: Mutex<usize>,
+    nb_turn: u64,
+    turn_duration: Duration,
+    pause_duration: Duration,
 }
 
 impl Server {
-    pub fn new<U: Dict  +'static>(dict: U, logger: Sender<LogMsg>) -> Server {
+    pub fn new(logger: Sender<LogMsg>) -> Server {
         let players = Players::new();
         let board = Board::new(true, vec![]);
-        let game = Game::new(players, board, dict);
-        Server { game, logger, nb_players: Mutex::new(0) }
+        let game = Game::new(players, board, LocalDict::new());
+        Server {
+            game,
+            logger,
+            nb_players: Mutex::new(0),
+            nb_turn: 10,
+            turn_duration: Duration::from_secs(180),
+            pause_duration: Duration::from_secs(15),
+        }
+    }
+
+    pub fn with_game(mut self, game: Game<CloneableWriter>) -> Server {
+        self.game = game;
+        self
+    }
+
+    pub fn with_turn_duration(mut self, duration: Duration) -> Server {
+        self.turn_duration = duration;
+        self
+    }
+
+    pub fn with_pause_duration(mut self, duration: Duration) -> Server {
+        self.pause_duration = duration;
+        self
+    }
+
+    pub fn with_nb_turn(mut self, nb_turn: u64) -> Server {
+        self.nb_turn = nb_turn;
+        self
+    }
+
+    pub fn nb_turn(&self) -> u64 {
+        self.nb_turn
+    }
+
+    pub fn turn_duration(&self) -> Duration {
+        self.turn_duration
+    }
+
+    pub fn pause_duration(&self) -> Duration {
+        self.pause_duration
     }
 
     pub fn nb_players(&self) -> usize {

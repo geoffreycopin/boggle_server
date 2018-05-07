@@ -8,7 +8,6 @@ use super::{
     players::*,
     game::Game,
     errors::ServerError,
-    dict::Dict,
     cloneable_stream::CloneableWriter,
 };
 
@@ -52,7 +51,7 @@ fn connect(server: Arc<Server>, stream: CloneableWriter, reader: &mut BufReader<
            -> Result<String, ServerError>
 {
     if server.nb_players() == 0 {
-        start_session(server.clone());
+        start_session(server.clone(), server.nb_turn(), server.turn_duration(), server.pause_duration());
     }
     let mut req = String::new();
     reader.read_line(&mut req).unwrap();
@@ -108,15 +107,17 @@ fn parse_penvoi(components: &[&str]) -> Result<Request, ()> {
     Ok(Request::Chat(user.to_string(), message.to_string()))
 }
 
-fn start_session(server: Arc<Server>) -> JoinHandle<()> {
+fn start_session(server: Arc<Server>, nb_turn: u64, turn: Duration, pause: Duration)
+    -> JoinHandle<()>
+{
     thread::spawn(move || {
         loop {
             server.start_game_session();
-            for _ in 0..10 {
+            for _ in 0..nb_turn {
                 server.new_game_turn();
-                thread::sleep(Duration::from_secs(180));
+                thread::sleep(turn);
                 server.end_game_turn();
-                thread::sleep(Duration::from_secs(10));
+                thread::sleep(pause);
                 if server.nb_players() == 0 {
                     return;
                 }

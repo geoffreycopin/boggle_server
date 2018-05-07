@@ -55,7 +55,7 @@ impl Board {
     pub fn reset(&mut self) {
         self.update_grid();
         self.invalid_words.clear();
-        self.scores.clear();
+        self.scores.values_mut().for_each(|v| *v = 0);
         self.player_words.clear();
         self.played.clear();
         self.turn = 1;
