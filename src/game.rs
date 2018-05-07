@@ -69,13 +69,12 @@ impl<T: Write + Clone> Game<T> {
     }
 
     pub fn new_turn(&self) {
-        let grid;
-        {
-            let mut board = self.board.write().unwrap();
-            board.new_turn();
-            grid = board.grid_str();
-        }
+        let mut board = self.board.write().unwrap();
+        board.new_turn();
+        let grid = board.grid_str();
         let msg = format!("TOUR/{}/\n", grid);
+        drop(board);
+
         let mut players = self.players.write().unwrap();
         players.broadcast_message(&msg);
 

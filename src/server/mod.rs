@@ -18,7 +18,6 @@ use std::{
     thread::{self, JoinHandle},
     marker::Sync,
     net::TcpStream,
-    mem::replace,
     time::Duration,
 };
 

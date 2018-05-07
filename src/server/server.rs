@@ -1,8 +1,5 @@
 use super::*;
-use std::{
-    io::prelude::*,
-    sync::atomic::AtomicUsize,
-};
+use std::io::prelude::*;
 
 pub enum Request {
     Login(String),
@@ -21,7 +18,7 @@ pub struct Server {
 impl Server {
     pub fn new<U: Dict  +'static>(dict: U, logger: Sender<LogMsg>) -> Server {
         let players = Players::new();
-        let board = Board::new(true);
+        let board = Board::new(true, vec![]);
         let game = Game::new(players, board, dict);
         Server { game, logger, nb_players: Mutex::new(0) }
     }
@@ -30,18 +27,14 @@ impl Server {
         self.nb_players.lock().unwrap().clone()
     }
 
-    pub fn set_nb_users(&self, nb: usize) {
-        *self.nb_players.lock().unwrap() = nb;
-    }
-
     pub fn start_game_session(&self) {
         self.game.start_session();
-        println!("Start session");
+        self.log(LogMsg::SessionStart);
     }
 
     pub fn end_game_session(&self) {
         self.game.end_session();
-        println!("End Session");
+        self.log(LogMsg::SessionEnd);
     }
 
     pub fn new_game_turn(&self) {

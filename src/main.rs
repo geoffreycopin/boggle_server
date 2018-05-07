@@ -1,6 +1,9 @@
 #[macro_use] extern crate failure;
+#[macro_use] extern crate lazy_static;
 extern crate rand;
 extern crate unidecode;
+extern crate clap;
+extern crate regex;
 
 mod board;
 mod cloneable_stream;
@@ -18,7 +21,28 @@ use std::{
     thread,
 };
 
+use clap::{App, Arg};
+
 fn main() {
+    App::new("boggle_server")
+        .author("Geoffrey Copin - 3201050")
+        .arg(Arg::with_name("port")
+            .long("port")
+            .value_name("PORT")
+            .takes_value(true))
+        .arg(Arg::with_name("tours")
+            .long("tours")
+            .value_name("NB TOURS")
+            .takes_value(true))
+        .arg(Arg::with_name("immediat")
+            .long("immediat")
+            .help("Active la verification immédiate"))
+        .arg(Arg::with_name("grilles")
+            .long("grilles")
+            .value_name("grille1 grille2")
+            .takes_value(true)
+            .multiple(true))
+        .get_matches();
     serve()
 }
 

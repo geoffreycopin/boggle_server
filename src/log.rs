@@ -13,6 +13,8 @@ pub enum LogMsg {
     Accepted(String, String),
     MessageSent(String, String, String),
     GlobalMessage(String, String),
+    SessionStart,
+    SessionEnd,
 }
 
 impl LogMsg {
@@ -49,6 +51,8 @@ impl fmt::Display for LogMsg {
             &LogMsg::GlobalMessage(ref user, ref message) =>
                 write!(f, "Le message <{}> soumis par {} a été envoyé à tous les utilisateurs.",
                        message, user),
+            &LogMsg::SessionStart => write!(f, "Début de la session."),
+            &LogMsg::SessionEnd => write!(f, "Fin de la session."),
         }
     }
 }

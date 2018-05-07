@@ -10,6 +10,13 @@ use std::{
     collections::{HashMap, HashSet}
 };
 
+use regex::Regex;
+use rand::{self, Rng};
+
+lazy_static! {
+    static ref GRID_REGEX: Regex = Regex::new("[a-zA-Z]{16}").unwrap();
+}
+
 const DICES: [[char; 6]; 16] = [
     ['E', 'T', 'U', 'K', 'N', 'O'],
     ['E', 'V', 'G', 'T', 'I', 'N'],
@@ -28,6 +35,28 @@ const DICES: [[char; 6]; 16] = [
     ['A', 'I', 'M', 'S', 'O', 'R'],
     ['E', 'N', 'H', 'R', 'I', 'S'],
 ];
+
+fn generate_random_grid() -> [char; 16] {
+    let mut rng = rand::thread_rng();
+    let mut result = ['A'; 16];
+
+    DICES.iter()
+        .map(|dice| rng.choose(dice).unwrap())
+        .enumerate()
+        .for_each(|(idx, &letter)| result[idx] = letter);
+
+    result
+}
+
+fn grid_of_string(s: &str) -> Option<[char; 16]> {
+    if GRID_REGEX.is_match(s) {
+        let mut result = ['A'; 16];
+        s.chars().enumerate().for_each(|(idx, c)| result[idx] = c);
+        Some(result)
+    } else {
+        None
+    }
+}
 
 fn trajectory_of_string(t: &str) -> Result<Vec<(char, usize)>, ServerError> {
     if t.len() % 2 == 1 || t.len() < 6 {
@@ -114,6 +143,13 @@ fn index_of_letter(letter: char) -> usize {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn random_grid() {
+       generate_random_grid().iter()
+           .enumerate()
+           .for_each(|(idx, c)| assert!(DICES[idx].contains(c)))
+    }
 
     #[test]
     fn line_of_char_ok() {

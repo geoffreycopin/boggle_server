@@ -1,46 +1,59 @@
 use super::*;
 
-use rand::{self, Rng};
-
 use std::iter::FromIterator;
 
 pub struct Board {
     grid: [char; 16],
+    grids: Vec<String>,
     scores: HashMap<String, u32>,
     player_words: HashMap<String, Vec<String>>,
     played: HashSet<String>,
     invalid_words: HashSet<String>,
-    immediate_check: bool,
+    immediate: bool,
     turn: u64
 }
 
 impl Board {
-    pub fn new(immediate_check: bool) -> Board {
+    /// Crée un nouveau 'plateau de jeu'.
+    /// Toutes les cases de la grille sont initialisées à 'A'.
+    /// Le tour courant est initialisé à 0.
+    /// Si `immediate` vaut `true`, la verrification immédiate sera activée.
+    /// Si le vecteur `grids` est non vide, les grilles de test fournies (sous forme de
+    /// chaînes de caractères) seront utilisées de manière cyclique.
+    pub fn new(immediate: bool, grids: Vec<String>) -> Board {
         Board {
-            grid: Board::generate_grid(),
+            grid: ['A'; 16],
+            grids,
             scores: HashMap::new(),
             player_words: HashMap::new(),
             played: HashSet::new(),
             invalid_words: HashSet::new(),
-            immediate_check,
+            immediate,
             turn: 0,
         }
     }
 
-    fn generate_grid() -> [char; 16] {
-        let mut rng = rand::thread_rng();
-        let mut result = ['A'; 16];
 
-        DICES.iter()
-            .map(|dice| rng.choose(dice).unwrap())
-            .enumerate()
-            .for_each(|(idx, &letter)| result[idx] = letter);
+    fn update_grid(&mut self) {
+        let grid = match self.next_grid() {
+            Some(grid) => grid,
+            None => generate_random_grid(),
+        };
+        self.grid = grid;
+    }
 
-        result
+    fn next_grid(&mut self) -> Option<[char; 16]> {
+        if self.grids.is_empty() {
+            None
+        } else {
+            let grid = self.grids.remove(0);
+            self.grids.push(grid.clone());
+            grid_of_string(&grid)
+        }
     }
 
     pub fn reset(&mut self) {
-        self.grid = Board::generate_grid();
+        self.update_grid();
         self.invalid_words.clear();
         self.scores.clear();
         self.player_words.clear();
@@ -103,7 +116,7 @@ impl Board {
         }
 
         if self.played.contains(word) {
-            if self.immediate_check {
+            if self.immediate {
                 return Err(ServerError::already_played(word))
             } else {
                 self.invalid_words.insert(word.to_string());
@@ -128,7 +141,7 @@ impl Board {
 
     pub fn new_turn(&mut self) {
         self.update_users_scores();
-        self.grid = Board::generate_grid();
+        self.update_grid();
         self.player_words.clear();
         self.played.clear();
         self.invalid_words.clear();
@@ -170,10 +183,15 @@ pub mod test {
     use super::*;
 
     #[test]
-    fn new() {
-        let board = Board::new(true);
-        board.grid.iter().enumerate()
-            .for_each(|(idx, c)| assert!(DICES[idx].contains(c)));
+    fn update_grid() {
+        let mut board = Board::new(true, vec!["BBBBBBBBBBBBBBBB".to_string(),
+                                              "CCCCCCCCCCCCCCCC".to_string()]);
+        board.update_grid();
+        assert_eq!(['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'], board.grid);
+        board.update_grid();
+        assert_eq!(['C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C'], board.grid);
+        board.update_grid();
+        assert_eq!(['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'], board.grid);
     }
 
     #[test]
@@ -187,7 +205,7 @@ pub mod test {
     fn submit_word() {
         let mut board = create_test_board();
         board.add_user("user1");
-        board.immediate_check = false;
+        board.immediate = false;
         board.submit_word("user1", "trident", "C2B1A2A3B2C3D2").unwrap();
         assert_eq!(board.user_score("user1"), 5);
     }
@@ -195,7 +213,7 @@ pub mod test {
     #[test]
     fn submit_already_played_word() {
         let mut board = create_test_board();
-        board.immediate_check = false;
+        board.immediate = false;
         board.add_user("user1");
         board.add_user("user2");
         board.submit_word("user1", "trident", "C2B1A2A3B2C3D2").unwrap();
@@ -278,7 +296,7 @@ pub mod test {
     }
 
     pub fn create_test_board() -> Board {
-        let mut board = Board::new(true);
+        let mut board = Board::new(true, vec![]);
         board.grid = ['L', 'I', 'D', 'A',
                      'R', 'E', 'J', 'U',
                      'L', 'T', 'N', 'E',
