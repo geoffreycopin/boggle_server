@@ -70,25 +70,31 @@ impl Server {
         self.nb_players.lock().unwrap().clone()
     }
 
+    /// Démarre une session de jeu.
     pub fn start_game_session(&self) {
         self.game.start_session();
         self.log(LogMsg::SessionStart);
     }
 
+    /// Met fin à la session de jeu courante.
     pub fn end_game_session(&self) {
         self.game.end_session();
         self.log(LogMsg::SessionEnd);
     }
 
+    /// Démarre un nouveau tour.
     pub fn new_game_turn(&self) {
         self.game.new_turn();
         println!("start turn");
     }
 
+    /// Met fin au tour courant.
     pub fn end_game_turn(&self) {
         self.game.end_turn();
     }
 
+    /// Taite la requête `request` de l'utlisateur `username`.
+    /// La réponse éventuelle sera crite sur le stream `stream`.
     pub fn handle_client_request(&self, request: &str, username: &str, mut stream: CloneableWriter) {
         let result = parse_request(request).and_then(|r| {
             match r {
@@ -105,12 +111,14 @@ impl Server {
         }
     }
 
+    /// Enregsitre un nouvel utilisateur `username`.
     pub fn login(&self, username: &str, writer: CloneableWriter) -> Result<(), ServerError> {
         self.game.login(username, writer.clone())
             .map(|_|  { self.log(LogMsg::login(username)); *self.nb_players.lock().unwrap() += 1 })
             .map_err(|e| { writer.shutdown(); e })
     }
 
+    /// Supprime l'utlisateur `username` et clos la connexion.
     pub fn logout(&self, username: &str, writer: CloneableWriter) -> Result<(), ServerError> {
         self.game.logout(username).map(|_| {
             *self.nb_players.lock().unwrap() -= 1;
@@ -119,22 +127,29 @@ impl Server {
         })
     }
 
+    /// Soumission du mot `word` de trajectoire `trajectory` par l'utilisateur `username`.
     pub fn found(&self, username: &str, writer: &mut CloneableWriter, word: &str, trajectory: &str)
              -> Result<(), ServerError>
     {
         self.game.found(username, word, trajectory)
-            .map(|_| {
-                writer.write(format!("MVALIDE/{}/\n", word).as_bytes())
-                    .expect("Cannot write response");
-                self.log(LogMsg::Accepted(username.to_string(), word.to_string()))
+            .map(|is_immediate| {
+                if is_immediate {
+                    writer.write(format!("MVALIDE/{}/\n", word).as_bytes())
+                        .expect("Cannot write response");
+                }
+                self.log(LogMsg::accepted(username, word));
             })
             .map_err(|e| {
-                writer.write(format!("MINVALIDE/{}/\n", e).as_bytes())
-                    .expect("Cannot write response");
+                if let ServerError::AlreadyPlayed {ref word} = e {
+                    let msg = format!("PRI: le mot <{}> a déjà été joué !", word);
+                    writer.write(format!("MINVALIDE/{}/\n", msg).as_bytes())
+                        .expect("Cannot write response");
+                }
                 e
             })
     }
 
+    /// Envoi du message `msg` à l'utilisateur `receiver` par l'utilisateur `sender`.
     pub fn chat(&self, sender: &str, receiver: &str, msg: &str) -> Result<(), ServerError>
     {
         self.game.chat(sender, receiver, msg).map(|_| {
@@ -142,12 +157,14 @@ impl Server {
         })
     }
 
+    /// Envoi du message `message à tous les utilisateurs`.
     pub fn chat_all(&self, sender: &str, message: &str) -> Result<(), ServerError> {
         self.game.chat_all(message).map(|_| {
             self.log(LogMsg::global_message(sender, message));
         })
     }
 
+    /// Déconnecte l'utilisateur `username` s'il était connecté.
     pub fn remove_user_if_connected(&self, username: &str) {
         if self.game.is_connected(username) {
             if let Err(e) = self.game.logout(username) {
@@ -156,6 +173,7 @@ impl Server {
         }
     }
 
+    /// Envoie une commande au Logger.
     pub fn log(&self, msg: LogMsg) {
         self.logger.send(msg).unwrap()
     }

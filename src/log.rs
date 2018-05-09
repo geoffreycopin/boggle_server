@@ -30,6 +30,10 @@ impl LogMsg {
         LogMsg::Error(e)
     }
 
+    pub fn accepted(username: &str, word: &str) -> LogMsg {
+        LogMsg::Accepted(username.to_string(), word.to_string())
+    }
+
     pub fn message_sent(sender: &str, receiver: &str, message: &str) -> LogMsg {
         LogMsg::MessageSent(sender.to_string(), receiver.to_string(), message.to_string())
     }

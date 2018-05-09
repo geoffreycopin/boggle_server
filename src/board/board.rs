@@ -3,23 +3,25 @@ use super::*;
 use std::iter::FromIterator;
 
 pub struct Board {
+    /// Grille de jeu
     grid: [char; 16],
+    /// Grilles de test fournie au lancement du serveur
     grids: Vec<String>,
+    /// HashMap associant chaque joueur à son score.
     scores: HashMap<String, u32>,
+    /// HashMap associant chaque joueur aux mots qu'il a soumis.
     player_words: HashMap<String, Vec<String>>,
+    /// Set contennant tous les mots joués lors de ce tours.
     played: HashSet<String>,
+    /// Set contenant tous les mots joués au moins deux fois lors de ce tours.
     invalid_words: HashSet<String>,
+    /// Si true, la verrification immédiate est activée.
     immediate: bool,
+    /// Numéro du tours en cours.
     turn: u64
 }
 
 impl Board {
-    /// Crée un nouveau 'plateau de jeu'.
-    /// Toutes les cases de la grille sont initialisées à 'A'.
-    /// Le tour courant est initialisé à 0.
-    /// Si `immediate` vaut `true`, la verrification immédiate sera activée.
-    /// Si le vecteur `grids` est non vide, les grilles de test fournies (sous forme de
-    /// chaînes de caractères) seront utilisées de manière cyclique.
     pub fn new(immediate: bool, grids: Vec<String>) -> Board {
         Board {
             grid: ['A'; 16],
@@ -52,6 +54,7 @@ impl Board {
         }
     }
 
+    /// "Mise à zéro" du plateau de jeu après une tour.
     pub fn reset(&mut self) {
         self.update_grid();
         self.invalid_words.clear();
@@ -61,6 +64,7 @@ impl Board {
         self.turn = 1;
     }
 
+    /// Renvoie une chaîne de caractères contenant le message de bienvenue.
     pub fn welcome_str(&self) -> String {
         let grid = String::from_iter(self.grid.iter());
         let scores = self.scores_str();
@@ -83,6 +87,7 @@ impl Board {
         self.scores.remove(username);
     }
 
+    /// Renvoie une chaîne de caractères représentant les scores des joueurs.
     pub fn scores_str(&self) -> String  {
         self.scores.keys()
             .map(|u| format!("{}*{}", u, self.user_score(u)))
@@ -90,6 +95,7 @@ impl Board {
             .join("*")
     }
 
+    /// Renvoie une chaîne de caractères représentant les mot joués par les joueurs.
     fn words_str(&self) -> String {
         self.scores.keys()
             .map(|u| {
@@ -102,8 +108,9 @@ impl Board {
             .join("*")
     }
 
+    /// Soummision du mot `word`, de trajectoire `trajectory` par l'utilisateur `user`.
     pub fn submit_word(&mut self, user: &str, word: &str, trajectory: &str)
-        -> Result<(), ServerError>
+        -> Result<bool, ServerError>
     {
         let t = trajectory_of_string(trajectory)?;
 
@@ -120,7 +127,7 @@ impl Board {
                 return Err(ServerError::already_played(word))
             } else {
                 self.invalid_words.insert(word.to_string());
-                return Ok(())
+                return Ok(self.immediate)
             }
         }
 
@@ -128,9 +135,10 @@ impl Board {
             .push(word.to_string());
         self.played.insert(word.to_string());
 
-        Ok(())
+        Ok(self.immediate)
     }
 
+    /// Renvoie le mot correspondant à la trajectoire `trajectory`.
     fn word_of_trajectory(&self, trajectory: &[(char, usize)]) -> String {
         trajectory.iter() .map(|&(line, col)| {
                 let idx = (4 * index_of_letter(line)) + (col - 1);
@@ -139,6 +147,7 @@ impl Board {
             .collect::<String>().to_lowercase()
     }
 
+    /// Mise à jour du plateau de jeu après un tour.
     pub fn new_turn(&mut self) {
         self.update_users_scores();
         self.update_grid();
@@ -152,6 +161,7 @@ impl Board {
         format!("BILANMOTS/{}/{}/\n", self.words_str(), self.scores_str())
     }
 
+    /// Ajoute les points du tour courant au score de chaque joueur.
     fn update_users_scores(&mut self) {
         let mut scores = HashMap::new();
         for (user, score) in self.scores.iter() {
@@ -161,6 +171,7 @@ impl Board {
         self.scores = scores;
     }
 
+    /// Renvoie le score du joueur `user`.
     fn user_score(&self, user: &str) -> u32 {
         match self.scores.get(user) {
             Some(score) => score + self.turn_score(user),
@@ -168,6 +179,7 @@ impl Board {
         }
     }
 
+    /// Renvoie le nombre de points gagnés par le joueur `user` lors du tour courant.
     fn turn_score(&self, user: &str) -> u32 {
         self.player_words.get(user).map_or(0, |words| {
             words.iter()

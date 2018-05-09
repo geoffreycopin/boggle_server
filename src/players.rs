@@ -14,6 +14,8 @@ impl<T: Write> Players<T> {
         Players { players: HashMap::new()}
     }
 
+    /// Ajoute le joueur `name` à la liste des joueurs.
+    /// Renvoie une erreur si ce nom est déjà pris.
     pub fn login (&mut self, name: &str, stream: T) -> Result<(), ServerError> {
         if self.players.contains_key(name) {
             Err(ServerError::existing_user(name))
@@ -23,6 +25,7 @@ impl<T: Write> Players<T> {
         }
     }
 
+    /// Renvoie true si le joueur `username` existe.
     pub fn is_connected(&self, username: &str) -> bool {
         self.players.contains_key(username)
     }
@@ -33,6 +36,7 @@ impl<T: Write> Players<T> {
         self.players.insert(pseudo.to_string(), stream);
     }
 
+    /// Envoie le message `message` à tous les joueurs connectés.
     pub fn broadcast_message(&mut self, message: &str) {
         for s in self.players.values_mut() {
             if let Err(e) = s.write(message.as_bytes()) {
@@ -41,6 +45,7 @@ impl<T: Write> Players<T> {
         }
     }
 
+    /// Envoie le message `msg` à tous les utilisateurs.
     pub fn chat(&mut self, send: &str, recv: &str, msg: &str) -> Result<(), ServerError> {
         if ! self.players.contains_key(send) {
             return Err(ServerError::invalid_chat(send, recv, msg,
@@ -55,6 +60,8 @@ impl<T: Write> Players<T> {
         Ok(())
     }
 
+    /// Supprimme l'utilisateur `username`.
+    /// Renvoie une erreur si cet utilisateur n'existait pas.
     pub fn logout(&mut self, username: &str) -> Result<(), ServerError> {
         if self.players.contains_key(username) {
             self.remove_user(username);

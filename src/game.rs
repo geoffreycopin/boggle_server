@@ -29,6 +29,9 @@ impl<T: Write + Clone> Game<T> {
         }
     }
 
+    /// Enregistre l'utilisateur `username`.
+    /// En cas de succès, le message de bienvenue sera écrit sur le flux `steam`.
+    /// REnvoie une erreur si l'utilisateur éxiste déjà.
     pub fn login(&self, username: &str, mut stream: T) -> Result<(), ServerError> {
         self.board.write().unwrap().add_user(username);
         let mut guard = self.players.write().unwrap();
@@ -37,6 +40,7 @@ impl<T: Write + Clone> Game<T> {
         res.map(|_| self.welcome(&mut stream))
     }
 
+    /// Ecrit le message de bienvenue sur le flux `stream`.
     fn welcome(&self, stream: &mut T) {
         let mut running = self.turn_running.lock().unwrap();
         while ! *running {
@@ -47,17 +51,21 @@ impl<T: Write + Clone> Game<T> {
         stream.write(welcome_str.as_bytes()).unwrap();
     }
 
+    /// Supprime l'utilisateur `username`.
+    /// Renvoie une erreur si l'utilisateur n'éxistait pas.
     pub fn logout(&self, username: &str) -> Result<(), ServerError> {
         let res = self.players.write().unwrap().logout(username);
         self.board.write().unwrap().remove_user(username);
         res
     }
 
+    /// Démarre une session de jeu.
     pub fn start_session(&self) {
         let mut players = self.players.write().unwrap();
         players.broadcast_message("SESSION/\n");
     }
 
+    /// Met fin à la sessionde jeu courante.
     pub fn end_session(&self) {
         let msg = self.board.write().unwrap().scores_str();
         let mut players = self.players.write().unwrap();
@@ -67,6 +75,7 @@ impl<T: Write + Clone> Game<T> {
         self.board.write().unwrap().reset();
     }
 
+    /// Démarre un nouveau tour.
     pub fn new_turn(&self) {
         let mut board = self.board.write().unwrap();
         board.new_turn();
@@ -82,6 +91,7 @@ impl<T: Write + Clone> Game<T> {
         self.turn_cond.notify_all();
     }
 
+    /// Met fin au tour courant.
     pub fn end_turn(&self) {
         *self.turn_running.lock().unwrap() = false;
         let message = self.board.write().unwrap().turn_scores();
@@ -90,8 +100,9 @@ impl<T: Write + Clone> Game<T> {
         players.broadcast_message(&message);
     }
 
+    /// Analyse le mot `word`de trajectoire `trajectory` soumis par le joueur `username`.
     pub fn found(&self, username: &str, word: &str, trajectory: &str)
-        -> Result<(), ServerError>
+        -> Result<bool, ServerError>
     {
         let word = word.to_lowercase();
         self.check_exists(&word)?;

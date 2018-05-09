@@ -29,6 +29,7 @@ pub fn run(server: Arc<Server>, streams: Receiver<TcpStream>) {
     }
 }
 
+/// Démarre la connexion entre le serveur et un client.
 fn start_connection(server: Arc<Server>, stream: TcpStream) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let writer = CloneableWriter::new(stream);
@@ -47,6 +48,8 @@ fn start_connection(server: Arc<Server>, stream: TcpStream) {
     server.remove_user_if_connected(&username);
 }
 
+/// Lit la première requête du client et la traite si c'est une requête de connexion.
+/// Renvoie une erreur sinon.
 fn connect(server: Arc<Server>, stream: CloneableWriter, reader: &mut BufReader<TcpStream>)
            -> Result<String, ServerError>
 {
@@ -64,6 +67,7 @@ fn connect(server: Arc<Server>, stream: CloneableWriter, reader: &mut BufReader<
     }
 }
 
+/// Parse la requête d'un client.
 fn parse_request(req: &str) -> Result<Request, ServerError> {
     let components: Vec<&str> = req.split("/").collect();
     let err = ServerError::bad_request(req);
@@ -107,6 +111,7 @@ fn parse_penvoi(components: &[&str]) -> Result<Request, ()> {
     Ok(Request::Chat(user.to_string(), message.to_string()))
 }
 
+/// Démarre une Session dans un thread.
 fn start_session(server: Arc<Server>, nb_turn: u64, turn: Duration, pause: Duration)
     -> JoinHandle<()>
 {
