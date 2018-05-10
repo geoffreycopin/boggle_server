@@ -100,12 +100,26 @@ fn line_of_char(line: char) -> Result<char, ()> {
 }
 
 pub fn is_valid_trajectory(t: &[(char, usize)]) -> bool {
+    if contains_doubles(t) {
+        return false
+    }
     for i in 0..t.len() - 1 {
         if ! is_valid_distance(t[i], t[i + 1]) {
             return false
         }
     }
     true
+}
+
+fn contains_doubles(trajectory: &[(char, usize)]) -> bool {
+    let mut seen = HashSet::new();
+    for c in trajectory {
+        if seen.contains(c) {
+            return true
+        }
+        seen.insert(c);
+    }
+    false
 }
 
 fn is_valid_distance(square1: (char, usize), square2: (char, usize)) -> bool {
@@ -212,5 +226,11 @@ mod test {
             Ok(ref t) if t == &expected => (),
             _ => panic!("Trajectory {} is invalid !", trajectory)
         }
+    }
+
+    #[test]
+    fn contains_duplicates() {
+        let trajectory = vec![('A', 2), ('B', 1), ('A', 2)];
+        assert!(contains_doubles(&trajectory))
     }
 }

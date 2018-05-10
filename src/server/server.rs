@@ -140,7 +140,7 @@ impl Server {
                 self.log(LogMsg::accepted(username, word));
             })
             .map_err(|e| {
-                if let ServerError::AlreadyPlayed {ref word} = e {
+                if let ServerError::AlreadyPlayed {ref word, immediate: true} = e {
                     let msg = format!("PRI: le mot <{}> a déjà été joué !", word);
                     writer.write(format!("MINVALIDE/{}/\n", msg).as_bytes())
                         .expect("Cannot write response");

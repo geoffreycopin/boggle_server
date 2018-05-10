@@ -15,7 +15,7 @@ pub enum ServerError {
     NonExistingWord { word: String },
 
     #[fail(display = "Le mot {} a déjà ete joué.", word)]
-    AlreadyPlayed { word: String },
+    AlreadyPlayed { word: String, immediate: bool },
 
     #[fail(display = "La trajectoire {} est invalide.", trajectory)]
     BadTrajectory { trajectory: String },
@@ -55,9 +55,10 @@ impl ServerError {
         }
     }
 
-    pub fn already_played(word: &str) -> ServerError {
+    pub fn already_played(word: &str, immediate: bool) -> ServerError {
         ServerError::AlreadyPlayed {
-            word: word.to_string()
+            word: word.to_string(),
+            immediate
         }
     }
 

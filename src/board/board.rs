@@ -124,10 +124,10 @@ impl Board {
 
         if self.played.contains(word) {
             if self.immediate {
-                return Err(ServerError::already_played(word))
+                return Err(ServerError::already_played(word, true))
             } else {
                 self.invalid_words.insert(word.to_string());
-                return Ok(self.immediate)
+                return Err(ServerError::already_played(word, false))
             }
         }
 
@@ -230,7 +230,10 @@ pub mod test {
         board.add_user("user2");
         board.submit_word("user1", "trident", "C2B1A2A3B2C3D2").unwrap();
         board.submit_word("user1", "ile", "A2A1B2").unwrap();
-        board.submit_word("user2", "trident", "C2B1A2A3B2C3D2").unwrap();
+        match board.submit_word("user2", "trident", "C2B1A2A3B2C3D2") {
+            Err(ServerError::AlreadyPlayed {..}) => (),
+            _ => panic!()
+        };
         assert_eq!(board.user_score("user1"), 1);
         assert_eq!(board.user_score("user2"), 0);
     }
